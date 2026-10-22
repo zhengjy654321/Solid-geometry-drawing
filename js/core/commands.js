@@ -486,6 +486,25 @@
       } else region = this.points(c.moving || c.points);
       S.recompute();
       const A = S.ctx.pt(a), B = S.ctx.pt(b);
+      // 折痕是多边形的对角线时，只折起其中一侧（含 side 点的一侧；默认含第一个顶点的一侧）
+      {
+        const ia = region.indexOf(a), ib = region.indexOf(b), n = region.length;
+        if (ia >= 0 && ib >= 0 && n > 3 && Math.abs(ia - ib) !== 1 && Math.abs(ia - ib) !== n - 1) {
+          const ch1 = [], ch2 = [];
+          for (let i = ia; ; i = (i + 1) % n) { ch1.push(region[i]); if (i === ib) break; }
+          for (let i = ib; ; i = (i + 1) % n) { ch2.push(region[i]); if (i === ia) break; }
+          let pick = ch1.includes(region[0]) && region[0] !== a && region[0] !== b ? ch1 : ch2;
+          if (c.side) {
+            const pl = G.planePoly(region.map((id) => S.ctx.pt(id)));
+            const k = V.sub(B, A);
+            const sd = (p) => V.dot(V.cross(k, V.sub(p, A)), pl.n);
+            const s0 = sd(c.side.map(Number));
+            const v1 = ch1.find((id) => id !== a && id !== b);
+            pick = sd(S.ctx.pt(v1)) * s0 > 0 ? ch1 : ch2;
+          }
+          region = pick;
+        }
+      }
       const scale = Math.max(1, V.dist(A, B));
       const onAxis = (id) => id === a || id === b || G.distPointLine(S.ctx.pt(id), A, B) < 1e-7 * scale;
       const cand = new Set(region.filter((id) => !onAxis(id)));

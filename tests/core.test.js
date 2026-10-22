@@ -94,6 +94,22 @@ t('折叠：正方形沿对角线折成直二面角', () => {
   void f;
 });
 
+t('折叠：折痕为对角线时按 side 选择折起的一侧', () => {
+  for (const [side, moved] of [[null, 'A'], [[1.5, 1.4, 0], 'C']]) {
+    const { S, run } = fresh();
+    run({ op: 'point', name: 'A', coord: [0, 0, 0] }); run({ op: 'point', name: 'B', coord: [2, 0, 0] });
+    run({ op: 'point', name: 'C', coord: [2, 2, 0] }); run({ op: 'point', name: 'D', coord: [0, 2, 0] });
+    run({ op: 'polygon', points: 'ABCD' });
+    const before = Object.fromEntries('ABCD'.split('').map((n) => [n, S.byName(n).v.slice()]));
+    run({ op: 'fold', face: 'ABCD', axis: ['B', 'D'], angle: 90, side: side || undefined });
+    for (const n of 'ABCD') {
+      const changed = SG.V.dist(before[n], S.byName(n).v) > 1e-9;
+      assert.strictEqual(changed, n === moved, n + (changed ? ' 不应移动' : ' 应移动'));
+    }
+    assert.ok(S.byName(moved).v[2] > 0, '默认向上折起');
+  }
+});
+
 t('拉伸底面、凸包、过线与面成角的平面', () => {
   const { S, run } = fresh();
   run({ op: 'point', name: 'A', coord: [0, 0, 0] });

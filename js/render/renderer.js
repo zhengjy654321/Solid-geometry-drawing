@@ -323,7 +323,11 @@
     if (view.workPlane && !exp) {
       const pl = view.workPlane;
       const c0 = pl.center || pl.o;
-      const m = 4;
+      let m = 4;
+      if (pl.anchors && pl.anchors.length > 1) {
+        const r = Math.max(...pl.anchors.map((a) => V.dist(a, c0)));
+        m = Math.max(2, Math.min(8, Math.ceil(r / gridStep) + 1));
+      }
       const col = 'rgba(31,111,209,0.18)';
       for (let i = -m; i <= m; i++) {
         const a = V.add(c0, V.scale(pl.u, i * gridStep)), b = V.add(c0, V.scale(pl.v, i * gridStep));

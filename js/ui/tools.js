@@ -228,10 +228,10 @@
   // ============================================================ 截面 / 折叠 / 变换
   tool({ id: 'section', label: '截面', desc: '选择立体，再选择截面（或依次点三个点，如三条棱的中点），自动求出截面多边形', inputs: [{ type: 'solid', label: '选择立体' }, PL('选择截面或三个点')], run: (app, a) => app.C.exec({ op: 'section', solid: a[0], plane: a[1] }).main });
   tool({
-    id: 'fold', label: '翻折', desc: '先选要折起的部分（一个面，或三个点确定的区域），再选折痕（直线或两点），然后设置角度',
+    id: 'fold', label: '翻折', desc: '先单击要折起的那部分面（或三个点确定的区域），再选折痕（直线或两点）。折痕是对角线时，单击位置所在的一侧被折起',
     inputs: [PL('选择要折起的面（或三点）'), L('选择折痕')],
     options: [{ key: 'angle', label: '旋转角', type: 'number', def: 90, step: 15 }, { key: 'flip', label: '反向', type: 'check', def: false }],
-    run: (app, a, o) => app.C.exec({ op: 'fold', face: a[0], axis: a[1], angle: o.angle, dir: o.flip ? -1 : 1, view: app.cam.F }).main,
+    run: (app, a, o, x) => app.C.exec({ op: 'fold', face: a[0], axis: a[1], angle: o.angle, dir: o.flip ? -1 : 1, view: app.cam.F, side: x && x.pos && x.pos[0] ? x.pos[0] : undefined }).main,
   });
   tool({ id: 'rotatePoint', label: '绕轴旋转点', desc: '点绕直线旋转一定角度得到新点', inputs: [Pe('选择点'), L('选择旋转轴')], options: [{ key: 'angle', label: '角度', type: 'number', def: 90, step: 15 }], run: (app, a, o) => app.C.exec({ op: 'rotatePoint', point: a[0], axis: a[1], angle: o.angle }).main });
 

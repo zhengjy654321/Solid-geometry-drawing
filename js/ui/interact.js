@@ -20,6 +20,7 @@
       this.app = app;
       this.toolId = 'select';
       this.picked = [];      // 已完成的输入
+      this.pickPos = [];     // 每个输入的单击位置（三维）
       this.partial = [];     // 当前输入的部分点（如直线的两点、平面的三点）
       this.opts = {};        // 各工具选项
       this.drag = null;
@@ -50,6 +51,7 @@
     }
     reset() {
       this.picked = [];
+      this.pickPos = [];
       this.partial = [];
       this.app.pickHL = [];
       this.app.preview = [];
@@ -278,7 +280,14 @@
         this.partial = [];
       }
       if (t.variadic === 'set' && this.picked.includes(value)) { this.picked = this.picked.filter((x) => x !== value); }
-      else this.picked.push(value);
+      else {
+        this.picked.push(value);
+        // 记录单击位置（翻折时用于判断折起哪一侧）
+        let pos = null;
+        const fo = !Array.isArray(value) && this.S.map.get(value);
+        if (fo && (fo.type === 'polygon' || fo.type === 'plane') && fo.v) pos = this.cam.rayPlane(x, y, fo.type === 'polygon' ? fo.v.plane : fo.v);
+        this.pickPos[this.picked.length - 1] = pos;
+      }
       this.app.pickHL = this.picked.flat();
       if (t.variadic) { this.updateStatus(); this.app.render(); return; }
       if (this.picked.length >= t.inputs.length) this.runTool();
@@ -296,9 +305,10 @@
     runTool() {
       const t = this.tool;
       const args = this.picked.slice();
+      const extra = { pos: this.pickPos.slice() };
       const o = this.opts[this.toolId] || {};
       this.reset();
-      const res = this.app.change(t.label, () => t.run(this.app, args, o));
+      const res = this.app.change(t.label, () => t.run(this.app, args, o, extra));
       if (res && res !== true) {
         const id = Array.isArray(res) ? res[0] : res;
         if (this.S.map.has(id) && this.toolId !== 'point') this.app.select(id);
