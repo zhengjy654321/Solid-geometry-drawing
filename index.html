@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>立体几何绘图器</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 8l8-4 8 4v8l-8 4-8-4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 8l8 4 8-4M12 12v8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span>立体几何绘图器</span></div>
+    <div class="group">
+      <button data-act="new" title="新建（清空画布）">新建</button>
+      <button data-act="open" title="打开 .json 文件">打开</button>
+      <button data-act="save" title="保存为 .json 文件 (Ctrl+S)">保存</button>
+      <div class="dropdown">
+        <button class="dd-toggle">导出 ▾</button>
+        <div class="dd-menu">
+          <button data-act="exportPNG">导出 PNG 图片</button>
+          <button data-act="exportSVG">导出 SVG 矢量图</button>
+          <button data-act="copyPNG">复制图片到剪贴板</button>
+        </div>
+      </div>
+    </div>
+    <div class="group">
+      <button data-act="undo" title="撤销 (Ctrl+Z)">↶</button>
+      <button data-act="redo" title="重做 (Ctrl+Y)">↷</button>
+    </div>
+    <div class="group">
+      <span class="lbl">视图</span>
+      <button data-act="viewDefault" title="默认斜视图">斜视</button>
+      <button data-act="viewFront" title="正视图（从 x 轴正方向看）">正</button>
+      <button data-act="viewSide" title="侧视图（从 y 轴正方向看）">侧</button>
+      <button data-act="viewTop" title="俯视图">俯</button>
+      <button data-act="viewOblique" id="btnOblique" title="斜二测画法（教材标准画法）">斜二测</button>
+      <button data-act="fit" title="适应窗口 (F)">适应</button>
+    </div>
+    <div class="group">
+      <div class="dropdown">
+        <button class="dd-toggle">显示 ▾</button>
+        <div class="dd-menu checks" id="viewChecks"></div>
+      </div>
+      <button data-act="toggleLabels" id="btnLabels" title="一键显示 / 隐藏所有点的标签 (L)">Aa 标签</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="group">
+      <button data-act="ai" class="accent" title="AI 辅助作图">✦ AI 辅助</button>
+      <button data-act="settings" title="设置">⚙ 设置</button>
+      <button data-act="help" title="使用说明">?</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <nav id="toolbar"></nav>
+    <div id="flyout" class="hidden"></div>
+
+    <section id="stage">
+      <div id="toolopts"></div>
+      <canvas id="cv"></canvas>
+      <div id="quickbar" class="hidden"></div>
+      <div id="joystick" class="hidden"></div>
+      <div id="status"></div>
+      <div id="zoomctl">
+        <button data-act="zoomIn" title="放大">＋</button>
+        <button data-act="zoomOut" title="缩小">－</button>
+      </div>
+    </section>
+
+    <aside id="side">
+      <div class="tabs">
+        <button data-tab="props" class="active">属性</button>
+        <button data-tab="objects">对象</button>
+        <button data-tab="measures">度量</button>
+        <button data-tab="ai">AI 助手</button>
+      </div>
+      <div class="tabpanes">
+        <div class="pane active" id="pane-props"></div>
+        <div class="pane" id="pane-objects"></div>
+        <div class="pane" id="pane-measures"></div>
+        <div class="pane" id="pane-ai"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="modal" class="hidden"><div class="modal-box"></div></div>
+  <div id="toast"></div>
+  <input type="file" id="fileInput" accept=".json,application/json" class="hidden">
+
+  <!-- 核心（无 DOM 依赖） -->
+  <script src="js/core/vec.js"></script>
+  <script src="js/core/exact.js"></script>
+  <script src="js/core/style.js"></script>
+  <script src="js/core/scene.js"></script>
+  <script src="js/core/solids.js"></script>
+  <script src="js/core/measure.js"></script>
+  <script src="js/core/commands.js"></script>
+  <!-- 渲染 -->
+  <script src="js/render/camera.js"></script>
+  <script src="js/render/renderer.js"></script>
+  <script src="js/render/backend.js"></script>
+  <!-- 界面 -->
+  <script src="js/ui/dom.js"></script>
+  <script src="js/ui/app.js"></script>
+  <script src="js/ui/tools.js"></script>
+  <script src="js/ui/interact.js"></script>
+  <script src="js/ui/quick.js"></script>
+  <script src="js/ui/panels.js"></script>
+  <script src="js/ui/joystick.js"></script>
+  <script src="js/ai/prompt.js"></script>
+  <script src="js/ai/client.js"></script>
+  <script src="js/ui/ai-panel.js"></script>
+  <script src="js/ui/main.js"></script>
+</body>
+</html>
