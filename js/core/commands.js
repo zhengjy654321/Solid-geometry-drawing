@@ -643,8 +643,9 @@
     }
     op_moveTo(c) {
       const o = this.obj(c.target);
-      if (o.type !== 'point' || o.def.kind !== 'free') err('只有自由点可以直接设置坐标');
       const p = c.coord;
+      if (o.type === 'point' && o.def.kind === 'offset') { o.def.vec = V.sub(p.map(Number), this.S.ctx.pt(o.def.base)); return o; }
+      if (o.type !== 'point' || o.def.kind !== 'free') err('只有自由点（或解除约束后的点）可以直接设置坐标');
       o.def.x = +p[0]; o.def.y = +p[1]; o.def.z = +p[2];
       return o;
     }
@@ -652,6 +653,25 @@
       const list = c.targets ? this.targets(c) : this.S.objects.filter((o) => o.type === 'point' || o.type === 'plane');
       for (const o of list) o.style.label = c.show !== false;
       return null;
+    }
+    /** 解除点的约束：有"基点"的点变为相对基点的平移（仍连着基点，可任意拖动、倾斜），其余变为自由点 */
+    op_release(c) {
+      const o = this.obj(c.target);
+      if (o.type !== 'point') err('只有点可以解除约束');
+      this.S.recompute();
+      if (!o.v) err('该点当前无效');
+      const k = o.def.kind;
+      if (k === 'free' || k === 'offset') { o.locked = false; return o; }
+      if (k === 'solidVertex') err('立体的顶点不能单独解除约束，请修改立体的参数，或先选中顶点"生成多面体"');
+      if (k === 'folded') err('翻折中的点不能单独解除约束');
+      const base = o.def.base || o.def.anchor || (k === 'foot' || k === 'reflect' || k === 'rotatePt' ? o.def.p : null);
+      if (base && this.S.map.get(base) && this.S.map.get(base).v) {
+        o.def = { kind: 'offset', base, vec: V.sub(o.v, this.S.map.get(base).v) };
+      } else {
+        o.def = { kind: 'free', x: o.v[0], y: o.v[1], z: o.v[2] };
+      }
+      o.locked = false;
+      return o;
     }
     op_lock(c) {
       for (const o of this.targets(c)) o.locked = c.locked !== false;

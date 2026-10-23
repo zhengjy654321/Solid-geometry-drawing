@@ -140,5 +140,19 @@ t('球的截面圆与交线', () => {
   assert.ok(S.map.get(c.main).v.r > 0);
 });
 
+t('解除约束：竖直拉起的点可以倾斜，度量随之变化', () => {
+  const { S, run } = fresh();
+  run({ op: 'point', name: 'A', coord: [0, 0, 0] }); run({ op: 'point', name: 'B', coord: [2, 0, 0] }); run({ op: 'point', name: 'D', coord: [0, 2, 0] });
+  run({ op: 'pointAlongNormal', name: 'F', base: 'A', dist: 2 });
+  const m = run({ op: 'measure', type: 'angle', items: ['F', 'A', 'B'] });
+  near(deg(mval(S, m.main)), 90);
+  run({ op: 'release', target: 'F' });
+  assert.strictEqual(S.byName('F').def.kind, 'offset');
+  run({ op: 'setParam', target: 'F', key: 'vec.0', value: -2 });
+  near(deg(mval(S, m.main)), 135);
+  run({ op: 'moveTo', target: 'F', coord: [2, 0, 2] });
+  near(deg(mval(S, m.main)), 45);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

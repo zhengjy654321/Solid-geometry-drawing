@@ -49,6 +49,7 @@
         add('定长动点…', () => { app.ui.setTool('fixedLen'); app.ui.toolClickPick(o.id); });
         const k = SG.Kinds[o.def.kind];
         if (k && k.draggable && o.def.kind !== 'free') add(o.locked ? '解锁（变为动点）' : '锁定（变为定点）', run('锁定', () => () => { o.locked = !o.locked; }, true));
+        if (!['free', 'offset', 'solidVertex', 'folded'].includes(o.def.kind)) add('解除约束（可倾斜）', run('解除约束', exec({ op: 'release', target: o.id }), true));
         add('追踪轨迹', run('轨迹', () => exec({ op: 'trace', point: o.id })));
         add('以此为球心作球…', run('球', async () => {
           const r = await ask('球', [{ key: 'r', label: '半径', type: 'number', value: 1.5 }]);

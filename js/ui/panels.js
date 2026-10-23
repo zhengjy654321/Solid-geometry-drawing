@@ -281,6 +281,13 @@
     } else if (o.def.kind === 'free') {
       pane.appendChild(h('div', null, check('锁定（不可拖动）', o.locked, (v) => S_('锁定', () => { o.locked = v; }))));
     }
+    if (!['free', 'offset', 'solidVertex', 'folded'].includes(o.def.kind)) {
+      pane.appendChild(h('div', { class: 'btnrow' }, h('button', {
+        title: '去掉"沿法向""垂足"等约束，之后可以任意拖动（如把竖直的线拉斜）；若有基点，仍与基点保持连接',
+        onclick: () => S_('解除约束', () => { app.C.exec({ op: 'release', target: o.id }); UI.toast('已解除约束：直接拖动该点即可倾斜（按住 Shift 拖动可上下移动），也可以在下方精确修改 Δx、Δy、Δz', 'ok', 5000); }),
+      }, '解除约束（可自由拖动 / 倾斜）')));
+    }
+    if (o.def.kind === 'offset') pane.appendChild(h('div', { class: 'info' }, '该点 = ' + refName(S, o.def.base) + ' + (Δx, Δy, Δz)。拖动它会在与工作面平行的平面内移动（线段随之倾斜），按住 Shift 拖动沿法向上下移动；也可用左下角的摇杆。'));
     if (o.def.kind === 'onLine') {
       const fr = [['中点', 1 / 2], ['1/3', 1 / 3], ['2/3', 2 / 3], ['1/4', 1 / 4], ['3/4', 3 / 4], ['起点', 0], ['终点', 1]];
       pane.appendChild(sec('位置（' + refName(S, [o.def.a]) + 'P : ' + refName(S, [o.def.a, o.def.b]) + ' = t）',
