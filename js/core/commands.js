@@ -178,6 +178,40 @@
       return this.addPoint({ kind: 'reflect', p, target: this.point(c.center), ttype: 'point' }, c);
     }
     op_intersection(c) {
+      const S = this.S;
+      // 圆 / 球参与的交点：未指定 which 时，把现有的交点都作出来
+      const curve = (r, type) => { const o = this.obj(r); if (o.type !== type) err('"' + r + '" 不是' + (type === 'circle' ? '圆' : '球')); return o.id; };
+      let defs = null, count = 0;
+      if (c.circle && c.circle2) {
+        const c1 = curve(c.circle, 'circle'), c2 = curve(c.circle2, 'circle');
+        S.recompute();
+        const r = SG.Isect.circleCircle(S.ctx.val(c1), S.ctx.val(c2));
+        if (r === null) err('两圆不在同一平面内');
+        count = r.length; defs = (w) => ({ kind: 'intersectCC', c1, c2, which: w });
+      } else if (c.circle || c.sphere) {
+        const line = this.line(c.line || c.line1);
+        const L = (S.recompute(), S.ctx.line(line));
+        if (c.circle) {
+          const ci = curve(c.circle, 'circle');
+          count = SG.Isect.lineCircle(L.a, L.b, S.ctx.val(ci)).length; defs = (w) => ({ kind: 'intersectLC', line, circle: ci, which: w });
+        } else {
+          const sp = curve(c.sphere, 'sphere');
+          count = SG.Isect.lineSphere(L.a, L.b, S.ctx.val(sp)).length; defs = (w) => ({ kind: 'intersectLS', line, sphere: sp, which: w });
+        }
+      }
+      if (defs) {
+        if (c.which != null) return this.addPoint(defs(+c.which), Object.assign({}, c, { locked: true }));
+        if (!count) err(c.circle2 ? '两圆没有交点' : c.circle ? '直线与圆没有交点（直线需与圆在同一平面内，或穿过圆周）' : '直线与球面没有交点');
+        const names = c.names || [c.name];
+        let first = null;
+        for (let w = 0; w < count; w++) {
+          const pos = S.evalDef(defs(w));
+          const ex = S.objects.find((o) => o.type === 'point' && o.v && V.dist(o.v, pos) < 1e-7 * Math.max(1, V.len(pos)));
+          const o = ex && !names[w] ? ex : this.addPoint(defs(w), { name: names[w], locked: true });
+          first = first || o;
+        }
+        return first;
+      }
       const a = this.line(c.line || c.line1);
       if (c.plane) return this.addPoint({ kind: 'intersect', a, b: this.plane(c.plane), btype: 'plane' }, c);
       return this.addPoint({ kind: 'intersect', a, b: this.line(c.line2), btype: 'line' }, c);

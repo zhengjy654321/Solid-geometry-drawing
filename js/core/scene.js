@@ -169,6 +169,76 @@
       return V.mid(r.p, r.q);
     },
   });
+  /** 直线、圆、球之间的交点（直线均视为无限长） */
+  const Isect = {
+    tol: (pts) => 1e-7 * Math.max(1, ...pts.map((p) => Math.max(Math.abs(p[0]), Math.abs(p[1]), Math.abs(p[2])))),
+    quad(A, d, c, r) {
+      const w = V.sub(A, c);
+      const a = V.dot(d, d), b = 2 * V.dot(d, w), cc = V.dot(w, w) - r * r;
+      let disc = b * b - 4 * a * cc;
+      if (disc < -1e-9 * Math.max(1, b * b)) return [];
+      disc = Math.max(0, disc);
+      const q = Math.sqrt(disc);
+      const ts = q < 1e-12 ? [-b / (2 * a)] : [(-b - q) / (2 * a), (-b + q) / (2 * a)];
+      return ts.map((t) => V.addScaled(A, d, t));
+    },
+    lineLine(A, B, P, Q) {
+      const r = G.lineLine(A, B, P, Q);
+      if (r.parallel) return [];
+      return V.dist(r.p, r.q) < Isect.tol([A, B, P, Q]) * 10 ? [V.mid(r.p, r.q)] : [];
+    },
+    lineCircle(A, B, C) {
+      const d = V.sub(B, A);
+      const tol = Isect.tol([A, B, C.c]) * 10;
+      const den = V.dot(C.n, d);
+      if (Math.abs(den) > 1e-9 * V.len(d)) {
+        const t = V.dot(C.n, V.sub(C.c, A)) / den;
+        const q = V.addScaled(A, d, t);
+        return Math.abs(V.dist(q, C.c) - C.r) < tol ? [q] : [];
+      }
+      if (Math.abs(V.dot(C.n, V.sub(A, C.c))) > tol) return [];
+      return Isect.quad(A, d, C.c, C.r);
+    },
+    lineSphere(A, B, Sp) { return Isect.quad(A, V.sub(B, A), Sp.c, Sp.r); },
+    circleCircle(C1, C2) {
+      const tol = Isect.tol([C1.c, C2.c]) * 10;
+      if (Math.abs(Math.abs(V.dot(C1.n, C2.n)) - 1) > 1e-9 || Math.abs(V.dot(C1.n, V.sub(C2.c, C1.c))) > tol) return null;
+      const dv = V.sub(C2.c, C1.c), dist = V.len(dv);
+      if (dist < tol) return [];
+      const u = V.scale(dv, 1 / dist);
+      const a = (C1.r * C1.r - C2.r * C2.r + dist * dist) / (2 * dist);
+      const h2 = C1.r * C1.r - a * a;
+      if (h2 < -tol * Math.max(1, C1.r)) return [];
+      const hh = Math.sqrt(Math.max(0, h2));
+      const m = V.addScaled(C1.c, u, a);
+      const perp = V.norm(V.cross(C1.n, u));
+      return hh < 1e-12 ? [m] : [V.addScaled(m, perp, hh), V.addScaled(m, perp, -hh)];
+    },
+  };
+  const pickRoot = (pts, which, msg) => {
+    if (!pts || !pts.length) throw new Error(msg);
+    return pts[Math.min(which || 0, pts.length - 1)];
+  };
+  reg('intersectLC', {
+    type: 'point',
+    deps: (d) => refsOf(d.line).concat([d.circle]),
+    eval: (d, c) => { const L = c.line(d.line); return pickRoot(Isect.lineCircle(L.a, L.b, c.val(d.circle)), d.which, '直线与圆没有交点'); },
+  });
+  reg('intersectLS', {
+    type: 'point',
+    deps: (d) => refsOf(d.line).concat([d.sphere]),
+    eval: (d, c) => { const L = c.line(d.line); return pickRoot(Isect.lineSphere(L.a, L.b, c.val(d.sphere)), d.which, '直线与球面没有交点'); },
+  });
+  reg('intersectCC', {
+    type: 'point',
+    deps: (d) => [d.c1, d.c2],
+    eval: (d, c) => {
+      const r = Isect.circleCircle(c.val(d.c1), c.val(d.c2));
+      if (r === null) throw new Error('两圆不在同一平面内');
+      return pickRoot(r, d.which, '两圆没有交点');
+    },
+  });
+
   reg('center', {
     type: 'point',
     deps: (d) => d.pts.slice(),
@@ -725,6 +795,7 @@
   }
 
   SG.Kinds = Kinds;
+  SG.Isect = Isect;
   SG.registerKind = reg;
   SG.Scene = Scene;
   SG.depsOfDef = depsOfDef;

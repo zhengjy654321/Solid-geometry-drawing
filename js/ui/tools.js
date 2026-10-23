@@ -68,6 +68,22 @@
     run: (app, a) => app.C.exec({ op: 'pointOnLine', line: a[0], t: 0.5, locked: false }).main,
   });
   tool({ id: 'intersectLL', label: '两线交点', desc: '两条共面直线的交点（延长线也可）', inputs: [L('第一条直线'), L('第二条直线')], run: (app, a) => app.C.exec({ op: 'intersection', line: a[0], line2: a[1] }).main });
+  tool({
+    id: 'intersectCurve', label: '交点（直线 / 圆 / 球面）', desc: '依次单击两个对象：直线与圆、直线与球面、两个圆、两条直线。有两个交点时两个都作出',
+    inputs: [{ type: 'lcs', label: '第一个对象（直线 / 圆 / 球）' }, { type: 'lcs', label: '第二个对象（直线 / 圆 / 球）' }],
+    run: (app, a) => {
+      const S = app.S;
+      const t = (r) => (Array.isArray(r) ? 'line' : SG.LINE_TYPES.has(S.map.get(r).type) ? 'line' : S.map.get(r).type);
+      let [x, y] = a;
+      if (t(x) !== 'line' && t(y) === 'line') [x, y] = [y, x];
+      const tx = t(x), ty = t(y);
+      if (tx === 'line' && ty === 'line') return app.C.exec({ op: 'intersection', line: x, line2: y }).main;
+      if (tx === 'line' && ty === 'circle') return app.C.exec({ op: 'intersection', line: x, circle: y }).main;
+      if (tx === 'line' && ty === 'sphere') return app.C.exec({ op: 'intersection', line: x, sphere: y }).main;
+      if (tx === 'circle' && ty === 'circle') return app.C.exec({ op: 'intersection', circle: x, circle2: y }).main;
+      throw new Error('暂不支持这两种对象求交点（可求：直线与直线 / 圆 / 球面，圆与圆）');
+    },
+  });
   tool({ id: 'intersectLP', label: '线面交点', desc: '直线与平面的交点', inputs: [L('选择直线'), PL('选择平面')], run: (app, a) => app.C.exec({ op: 'intersection', line: a[0], plane: a[1] }).main });
   tool({
     id: 'footLine', label: '垂线 / 垂足（点 → 直线）', desc: '过点作直线的垂线，得到垂足', inputs: [Pe('选择点'), L('选择直线')],
@@ -378,7 +394,7 @@
   };
   const CATS = [
     { id: 'select', label: '选择', tools: ['select'] },
-    { id: 'point', label: '点', tools: ['point', 'pointCoord', 'midpoint', 'divide', 'dynOnLine', 'intersectLL', 'intersectLP', 'footLine', 'footPlane', 'raise', 'fixedLen', 'reflect', 'reflectPlane', 'centers'] },
+    { id: 'point', label: '点', tools: ['point', 'pointCoord', 'midpoint', 'divide', 'dynOnLine', 'intersectCurve', 'intersectLL', 'intersectLP', 'footLine', 'footPlane', 'raise', 'fixedLen', 'reflect', 'reflectPlane', 'centers'] },
     { id: 'line', label: '线', tools: ['segment', 'polyline', 'lineInf', 'ray', 'footLine', 'footPlane', 'parallel', 'extend'] },
     { id: 'plane', label: '面', tools: ['polygon', 'plane3', 'planeAxis', 'planePerpLine', 'planeParallel', 'planeLinePerp', 'planeLineAngle', 'setWork'] },
     { id: 'shape2d', label: '平面图形', tools: TPL2.map((k) => 'tpl_' + k).concat(['tpl_circle']) },

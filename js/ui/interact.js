@@ -112,6 +112,10 @@
         const o = S.map.get(hits.point);
         return { kind: 'point', id: o.id, pos: o.v, text: '点 ' + o.name };
       }
+      if (!noObj) {
+        const is = this.snapIntersection(x, y);
+        if (is) return is;
+      }
       if (hits.line && !noObj) {
         const o = S.map.get(hits.line);
         if (o && SG.LINE_TYPES.has(o.type)) {
@@ -164,6 +168,44 @@
       const fmt = (v) => SG.Exact.fmtNum(v, 2);
       return { kind: 'work', pos: q, text: '工作面上 (' + q.map(fmt).join(', ') + ')' };
     }
+    /** 光标附近两条曲线（直线、圆）的交点 */
+    snapIntersection(x, y) {
+      const S = this.S, cam = this.cam, dl = this.app.dl;
+      if (!dl) return null;
+      const near = new Map();
+      for (const l of dl.hits.lines) {
+        const o = S.map.get(l.id);
+        if (!o || !o.v || !(SG.LINE_TYPES.has(o.type) || o.type === 'circle')) continue;
+        for (let i = 0; i + 1 < l.pts.length; i++) {
+          const d = distToSeg2([x, y], l.pts[i], l.pts[i + 1]).d;
+          if (d < 14 && (!near.has(o.id) || near.get(o.id) > d)) near.set(o.id, d);
+        }
+      }
+      const ids = Array.from(near.keys()).sort((a, b) => near.get(a) - near.get(b)).slice(0, 6);
+      let best = null;
+      const I = SG.Isect;
+      const consider = (pts, mk, text) => {
+        (pts || []).forEach((p, w) => {
+          const s2 = cam.project(p);
+          const d = Math.hypot(s2[0] - x, s2[1] - y);
+          if (d < 10 && (!best || d < best.d)) best = { d, kind: 'isect', def: mk(w), pos: p, text };
+        });
+      };
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          let a = S.map.get(ids[i]), b = S.map.get(ids[j]);
+          const isL = (o) => SG.LINE_TYPES.has(o.type);
+          if (!isL(a) && isL(b)) [a, b] = [b, a];
+          const nm = S.displayName(a) + ' 与 ' + S.displayName(b) + ' 的交点';
+          if (isL(a) && isL(b)) {
+            if (a.def.a === b.def.a || a.def.a === b.def.b || a.def.b === b.def.a || a.def.b === b.def.b) continue;
+            consider(I.lineLine(a.v.a, a.v.b, b.v.a, b.v.b), () => ({ kind: 'intersect', a: a.id, b: b.id, btype: 'line' }), nm);
+          } else if (isL(a)) consider(I.lineCircle(a.v.a, a.v.b, b.v), (w) => ({ kind: 'intersectLC', line: a.id, circle: b.id, which: w }), nm);
+          else consider(I.circleCircle(a.v, b.v), (w) => ({ kind: 'intersectCC', c1: a.id, c2: b.id, which: w }), nm);
+        }
+      }
+      return best;
+    }
     gridSnap(q, wp) {
       const st = this.app.view.snapStep || 0.5;
       const w = this.app.work;
@@ -183,7 +225,8 @@
       const S = this.S, C = this.app.C;
       return this.app.change('新建点', () => {
         let o;
-        if (sn.kind === 'onLine') o = C.addPoint({ kind: 'onLine', a: sn.a, b: sn.b, t: sn.t, mode: sn.mode }, { locked: !!sn.nice });
+        if (sn.kind === 'isect') o = C.addPoint(sn.def, { locked: true });
+        else if (sn.kind === 'onLine') o = C.addPoint({ kind: 'onLine', a: sn.a, b: sn.b, t: sn.t, mode: sn.mode }, { locked: !!sn.nice });
         else if (sn.kind === 'onCircle') o = C.addPoint({ kind: 'onCircle', circle: sn.circle, ang: sn.ang });
         else if (sn.kind === 'onSphere') o = C.addPoint({ kind: 'onSphere', sphere: sn.sphere, th: sn.th, ph: sn.ph });
         else if (sn.kind === 'onFace') {
@@ -220,6 +263,10 @@
           if (P) return { partial: P.id, need: 2 };
           if (Lo && SG.LINE_TYPES.has(Lo.type)) return { value: Lo.id };
           if (input.create !== false && this.partial.length) return { create: true, partialCreate: true, need: 2 };
+          return null;
+        case 'lcs':
+          if (Lo && (SG.LINE_TYPES.has(Lo.type) || Lo.type === 'circle' || Lo.type === 'sphere')) return { value: Lo.id };
+          if (Sp) return { value: Sp.id };
           return null;
         case 'pl':
           if (P) return { value: P.id };

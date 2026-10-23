@@ -29,7 +29,7 @@
 2. {"op":"midpoint","name":"M","a":"A","b":"B"} —— 中点（也可写 "line":"AB"）
 3. {"op":"pointOnLine","name":"E","a":"A","b":"B","t":0.333333333,"locked":true} —— E = A + t·(B−A)，即 AE:AB = t；t>1 或 t<0 时在延长线上（此时加 "mode":"line"）
 4. {"op":"foot","name":"H","point":"P","plane":"ABC"} 或 {"op":"foot","name":"H","point":"P","line":"BC"} —— 垂足（点在平面/直线上的射影）
-5. {"op":"intersection","name":"O","line":"AC","line2":"BD"} —— 两条共面直线的交点；{"op":"intersection","name":"F","line":"PC","plane":["A","E","M"]} —— 直线与平面的交点
+5. {"op":"intersection","name":"O","line":"AC","line2":"BD"} —— 两条共面直线的交点；{"op":"intersection","name":"F","line":"PC","plane":["A","E","M"]} —— 直线与平面的交点；{"op":"intersection","line":"AB","circle":"<圆的id>"} / {"op":"intersection","line":"AB","sphere":"球O"} / {"op":"intersection","circle":"<id>","circle2":"<id>"} —— 直线与圆、直线与球面、两个共面圆的交点：不写 which 时把所有交点都作出（names 指定名称数组），写 "which":0 或 1 只作其中一个（按从直线第一个点到第二个点的顺序）
 6. {"op":"center","name":"G","type":"centroid","points":["A","B","C"]} —— type 可为 centroid(重心) / circumcenter(外心) / incenter(内心) / orthocenter(垂心)；四个点以上时为平均点
 7. {"op":"reflect","name":"Q","point":"P","center":"O"} / {"op":"reflect","name":"Q","point":"P","line":"AB"} / {"op":"reflect","name":"Q","point":"P","plane":"ABC"} —— 对称点
 8. {"op":"pointAlongNormal","name":"P","base":"A","plane":"ABCD","dist":2} —— 从 A 沿平面 ABCD 的法向移动 dist（法向朝"上"，dist 可为负）；"plane" 省略时为竖直向上（+z）

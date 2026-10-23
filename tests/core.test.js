@@ -171,5 +171,31 @@ t('绕点转动：锁定在平行于 yOz 的平面内 / 包含当前线且平行
   assert.ok(SG.V.dist(S.byName('F').v, before) < 1e-9);
 });
 
+t('直线与圆、直线与球面、两圆的交点', () => {
+  const { S, run } = fresh();
+  run({ op: 'point', name: 'O', coord: [0, 0, 0] });
+  const ci = run({ op: 'circle', center: 'O', radius: 2 }).main;
+  run({ op: 'point', name: 'A', coord: [-3, 1, 0] }); run({ op: 'point', name: 'B', coord: [3, 1, 0] });
+  run({ op: 'segment', a: 'A', b: 'B' });
+  run({ op: 'intersection', line: 'AB', circle: ci, names: ['M', 'N'] });
+  near(S.byName('M').v[0], -Math.sqrt(3)); near(S.byName('N').v[0], Math.sqrt(3)); near(S.byName('M').v[1], 1);
+  // 直线穿过圆所在平面
+  run({ op: 'point', name: 'P', coord: [2, 0, 1] }); run({ op: 'point', name: 'Q', coord: [2, 0, -1] });
+  run({ op: 'intersection', line: ['P', 'Q'], circle: ci, name: 'T' });
+  assert.ok(SG.V.dist(S.byName('T').v, [2, 0, 0]) < 1e-9);
+  // 球面
+  const sp = run({ op: 'sphere', center: 'O', radius: 2 }).main;
+  run({ op: 'intersection', line: ['P', 'Q'], sphere: sp, names: ['U', 'W'] });
+  assert.ok(SG.V.dist(S.byName('U').v, [2, 0, 0]) < 1e-6 && !S.byName('W'), '相切时只有一个交点');
+  // 两圆
+  run({ op: 'point', name: 'O2', coord: [2, 0, 0] });
+  const c2 = run({ op: 'circle', center: 'O2', radius: 2 }).main;
+  run({ op: 'intersection', circle: ci, circle2: c2, names: ['X', 'Y'] });
+  near(S.byName('X').v[0], 1); near(Math.abs(S.byName('X').v[1]), Math.sqrt(3));
+  // 拖动后依然在圆上
+  S.byName('B').def.y = 1.5; S.byName('A').def.y = 1.5; S.recompute();
+  near(SG.V.dist(S.byName('M').v, [0, 0, 0]), 2); near(S.byName('M').v[1], 1.5);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -37,6 +37,9 @@
       case 'foot': return n(def.p) + ' 在 ' + n(def.target) + ' 上的垂足';
       case 'reflect': return n(def.p) + ' 关于 ' + n(def.target) + ' 的对称点';
       case 'intersect': return n(def.a) + ' 与 ' + n(def.b) + ' 的交点';
+      case 'intersectLC': return n(def.line) + ' 与圆的交点（第 ' + ((def.which || 0) + 1) + ' 个）';
+      case 'intersectLS': return n(def.line) + ' 与 ' + n(def.sphere) + ' 球面的交点（第 ' + ((def.which || 0) + 1) + ' 个）';
+      case 'intersectCC': return '两圆的交点（第 ' + ((def.which || 0) + 1) + ' 个）';
       case 'center': return '△' + n(def.pts) + ' 的' + { centroid: '重心', circumcenter: '外心', incenter: '内心', orthocenter: '垂心' }[def.ctype];
       case 'rotatePt': return n(def.p) + ' 绕 ' + n([def.a, def.b]) + ' 旋转 ' + def.angle + '°';
       case 'solidVertex': return n(def.solid) + ' 的顶点';
