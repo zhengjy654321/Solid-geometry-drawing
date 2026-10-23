@@ -13,6 +13,15 @@
     const o = S.map.get(r);
     return o ? S.displayName(o) : '?';
   }
+  function planeDesc(S, ref, center) {
+    const o = ref != null && !Array.isArray(ref) && S.map.get(ref);
+    if (o && o.desc) return o.desc;
+    let p;
+    if (ref == null) p = '水平面（xOy）';
+    else if (o && o.def.kind === 'planeAxis' && o.hidden) p = { xy: 'xOy', yz: 'yOz', xz: 'xOz' }[o.def.axis] + ' 面';
+    else p = '平面 ' + refName(S, ref);
+    return '过 ' + center + ' 且平行于' + p + '的平面';
+  }
   function describeDef(S, def) {
     const n = (r) => refName(S, r);
     switch (def.kind) {
@@ -21,7 +30,7 @@
       case 'onPlane': return '面 ' + n(def.plane) + ' 上的点';
       case 'onCircle': return '圆上的点';
       case 'onSphere': return n(def.sphere) + ' 球面上的点';
-      case 'fixedLen': return '到 ' + n(def.anchor) + ' 距离为 ' + Exact.fmtNum(def.len) + ' 的动点（' + (def.mode === 'plane' ? '平面内' : '空间中') + '）';
+      case 'fixedLen': return '绕 ' + n(def.anchor) + ' 转动，长度 ' + Exact.fmtNum(def.len) + '（' + (def.mode === 'plane' ? '在' + planeDesc(S, def.plane, n(def.anchor)) + '内' : '在空间中') + '）';
       case 'offset': return n(def.base) + ' 平移 (' + def.vec.map((x) => Exact.fmtNum(x, 2)).join(', ') + ')';
       case 'alongNormal': return '由 ' + n(def.base) + ' 沿' + (def.plane ? '面 ' + n(def.plane) + ' 的' : '竖直') + '法向移动 ' + Exact.fmtNum(def.dist);
       case 'byVector': return n(def.base) + ' + ' + Exact.fmtNum(def.k) + '·向量' + n([def.from, def.to]);
@@ -287,6 +296,7 @@
         onclick: () => S_('解除约束', () => { app.C.exec({ op: 'release', target: o.id }); UI.toast('已解除约束：直接拖动该点即可倾斜（按住 Shift 拖动可上下移动），也可以在下方精确修改 Δx、Δy、Δz', 'ok', 5000); }),
       }, '解除约束（可自由拖动 / 倾斜）')));
     }
+    rotateSection(app, pane, o);
     if (o.def.kind === 'offset') pane.appendChild(h('div', { class: 'info' }, '该点 = ' + refName(S, o.def.base) + ' + (Δx, Δy, Δz)。拖动它会在与工作面平行的平面内移动（线段随之倾斜），按住 Shift 拖动沿法向上下移动；也可用左下角的摇杆。'));
     if (o.def.kind === 'onLine') {
       const fr = [['中点', 1 / 2], ['1/3', 1 / 3], ['2/3', 2 / 3], ['1/4', 1 / 4], ['3/4', 3 / 4], ['起点', 0], ['终点', 1]];
@@ -305,6 +315,44 @@
     pane.appendChild(h('div', { class: 'btnrow' },
       tr ? h('button', { onclick: () => app.select(tr.id) }, '查看轨迹') : h('button', { onclick: () => S_('轨迹', () => app.C.exec({ op: 'trace', point: o.id })) }, '追踪轨迹'),
       h('button', { onclick: () => S_('拉起', () => { const id = app.C.exec({ op: 'pointAlongNormal', base: o.id, plane: SG.Tools.workRef(app), dist: 2 }).main; app.C.ensureSegment(o.id, id); app.select(id); }) }, '沿法向拉起')));
+  }
+
+  /** "绕某点转动"设置：锁定在指定平面内转动或在空间中转动 */
+  function rotateSection(app, pane, o) {
+    const S = app.S, d = o.def;
+    if (['solidVertex', 'folded'].includes(d.kind)) return;
+    let anchor = d.anchor || d.base || (['foot', 'reflect', 'rotatePt'].includes(d.kind) ? d.p : null);
+    const nbrs = [];
+    for (const x of S.objects) {
+      if (!SG.LINE_TYPES.has(x.type)) continue;
+      const other = x.def.a === o.id ? x.def.b : x.def.b === o.id ? x.def.a : null;
+      if (other && !nbrs.includes(other) && !S.ancestors(other).has(o.id)) nbrs.push(other);
+    }
+    if (anchor && !nbrs.includes(anchor)) nbrs.unshift(anchor);
+    if (!nbrs.length) return;
+    if (!anchor) anchor = nbrs[0];
+    const nm = (id) => (S.map.get(id) || {}).name || '?';
+    const selA = h('select', null, nbrs.map((id) => h('option', { value: id, selected: id === anchor }, nm(id))));
+    const opts = [['axis:yz', '平行于 yOz 面（与 y 轴、z 轴都平行）'], ['axis:xz', '平行于 xOz 面（与 x 轴、z 轴都平行）'], ['axis:xy', '平行于 xOy 面（水平面）'],
+      ['contain:y', '包含当前线、且平行于 y 轴'], ['contain:x', '包含当前线、且平行于 x 轴'], ['contain:z', '包含当前线、且平行于 z 轴（竖直面）']];
+    for (const x of S.objects) if ((x.type === 'polygon' && !(x.v && x.v.curve)) || (x.type === 'plane' && !x.hidden)) opts.push(['plane:' + x.id, '平行于平面 ' + S.displayName(x)]);
+    opts.push(['space', '在空间中（不限平面，点在球面上）']);
+    const selM = h('select', null, opts.map(([v, l]) => h('option', { value: v }, l)));
+    pane.appendChild(sec('绕点转动（长度不变）',
+      field('转动中心', selA),
+      field('锁定在', selM),
+      h('div', { class: 'btnrow' }, h('button', {
+        class: 'primary',
+        onclick: () => {
+          const [kind, val] = selM.value.split(':');
+          const cmd = { op: 'constrain', target: o.id, anchor: selA.value, mode: kind === 'space' ? 'space' : 'plane' };
+          if (kind === 'axis') cmd.axisPlane = val;
+          if (kind === 'contain') cmd.containAxis = val;
+          if (kind === 'plane') cmd.plane = val;
+          if (app.change('转动方式', () => app.C.exec(cmd))) UI.toast('设置好了：拖动 ' + o.name + '，或用左下角摇杆左右推，它就绕 ' + nm(selA.value) + ' 转动', 'ok', 4500);
+        },
+      }, '应用')),
+      h('div', { class: 'note' }, '转动平面过转动中心，并与所选平面平行。设置后拖动该点或用摇杆即可转动，"面内角度 θ"可精确输入。')));
   }
 
   function sphereProps(app, pane, o) {
@@ -476,10 +524,10 @@
     const hiddenCount = S.objects.filter((o) => o.hidden).length;
     pane.appendChild(h('div', { class: 'btnrow' },
       h('button', { onclick: () => app.emit('toggleLabels') }, '全部点标签'),
-      hiddenCount ? h('button', { onclick: () => app.change('显示', () => { for (const o of S.objects) if (o.type !== 'plane' || o.def.kind !== 'planeAxis' || o.name) o.hidden = false; }) }, '显示全部隐藏对象 (' + hiddenCount + ')') : null));
+      hiddenCount ? h('button', { onclick: () => app.change('显示', () => { for (const o of S.objects) if (o.type !== 'plane' || o.name) o.hidden = false; }) }, '显示全部隐藏对象 (' + hiddenCount + ')') : null));
     const list = h('div', { class: 'olist' });
     for (const [title, pred] of GROUPS) {
-      const items = S.objects.filter((o) => pred(o) && !(o.hidden && o.type === 'plane' && o.def.kind === 'planeAxis' && !o.name));
+      const items = S.objects.filter((o) => pred(o) && !(o.hidden && o.type === 'plane' && !o.name));
       if (!items.length) continue;
       list.appendChild(h('div', { class: 'grp' }, title + '（' + items.length + '）'));
       for (const o of items) {

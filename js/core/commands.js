@@ -673,6 +673,60 @@
       o.locked = false;
       return o;
     }
+    /** 隐藏的坐标面平行平面（作为转动平面等的引用） */
+    axisPlane(axis, offset) {
+      offset = offset || 0;
+      let o = this.S.objects.find((x) => x.type === 'plane' && x.def.kind === 'planeAxis' && x.def.axis === axis && (x.def.offset || 0) === offset && x.hidden && !x.name);
+      if (!o) o = this.S.add({ type: 'plane', def: { kind: 'planeAxis', axis, offset, size: 2 }, name: null, hidden: true });
+      return o.id;
+    }
+    /**
+     * 让点绕中心转动（保持当前距离）：
+     *   mode:'space' 在空间中（球面）；mode:'plane' 在过中心、与指定平面平行的平面内（圆周）。
+     *   平面可用 plane（已有平面/多边形/三点）、axisPlane（'xy'|'yz'|'xz'），
+     *   或 containAxis（'x'|'y'|'z'：包含当前连线且平行于该坐标轴的平面）给出。
+     */
+    op_constrain(c) {
+      const S = this.S;
+      const o = this.obj(c.target);
+      if (o.type !== 'point') err('只有点可以设置转动方式');
+      const d = o.def;
+      const anchor = c.anchor ? this.point(c.anchor) : d.anchor || d.base || (['foot', 'reflect', 'rotatePt'].includes(d.kind) ? d.p : null);
+      if (!anchor) err('请指定转动中心（anchor）');
+      if (anchor === o.id || S.ancestors(anchor).has(o.id)) err('转动中心不能依赖于该点本身');
+      if (d.kind === 'solidVertex' || d.kind === 'folded') err('立体的顶点 / 翻折中的点不能这样设置');
+      S.recompute();
+      const A = S.ctx.pt(anchor), P = S.ctx.pt(o.id);
+      const len = V.dist(A, P);
+      if (len < 1e-9) err('该点与转动中心重合');
+      const w = V.scale(V.sub(P, A), 1 / len);
+      const mode = c.mode === 'space' ? 'space' : 'plane';
+      let plane = null;
+      if (mode === 'plane') {
+        if (c.axisPlane) plane = this.axisPlane(c.axisPlane);
+        else if (c.containAxis) {
+          const ax = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[c.containAxis];
+          if (!ax) err('containAxis 只能是 x、y、z');
+          const n = V.cross(w, ax);
+          if (V.len(n) < 1e-9) err('当前连线与 ' + c.containAxis + ' 轴平行，不能确定平面，请换一种方式');
+          const pl = S.add({ type: 'plane', def: { kind: 'planePN', p: anchor, n: V.norm(n) }, name: null, hidden: true });
+          pl.desc = '包含 ' + S.displayName(S.map.get(anchor)) + o.name + ' 且平行于 ' + c.containAxis + ' 轴的平面';
+          plane = pl.id;
+        } else if (c.plane) plane = this.plane(c.plane);
+        else err('请指定转动平面');
+      }
+      const def = { kind: 'fixedLen', anchor, len, mode, plane, th: 0, ph: 0 };
+      if (mode === 'plane') {
+        const b = SG.fixedLenBasis(def, S.ctx);
+        def.th = (Math.atan2(V.dot(w, b.v), V.dot(w, b.u)) * 180) / Math.PI;
+      } else {
+        def.th = (Math.atan2(w[1], w[0]) * 180) / Math.PI;
+        def.ph = (Math.asin(Math.max(-1, Math.min(1, w[2]))) * 180) / Math.PI;
+      }
+      o.def = def;
+      o.locked = false;
+      return o;
+    }
     op_lock(c) {
       for (const o of this.targets(c)) o.locked = c.locked !== false;
       return null;

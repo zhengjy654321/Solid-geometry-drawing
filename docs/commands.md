@@ -101,6 +101,7 @@
 42. {"op":"setParam","target":"ABCD-A1B1C1D1","key":"a","value":3} —— 修改参数（立体的 a/b/c/h/r 等，点在线上的比例 t，翻折的 angle 等）
 43. {"op":"moveTo","target":"E","coord":[x,y,z]} —— 移动自由点
 44. {"op":"release","target":"P"} —— 解除点的约束（如沿法向拉起的点、垂足），变为相对基点的平移或自由点；之后可用 setParam 修改 "vec.0" / "vec.1" / "vec.2"（相对基点的 Δx、Δy、Δz），或用 moveTo 移动自由点
+45. {"op":"constrain","target":"F","anchor":"A","mode":"plane","axisPlane":"yz"} —— 让点 F 保持到 A 的距离不变，绕 A 转动：mode 为 "space" 时在空间中转动；mode 为 "plane" 时锁定在过 A 且与某平面平行的平面内，平面用 "axisPlane"（xy / yz / xz）、"plane"（已有平面）或 "containAxis"（x / y / z，表示包含当前连线且平行于该坐标轴的平面）指定。之后可用 setParam 修改 "th"（面内角度）或 "len" 
 
 ## 四、作图要求
 - 优先使用构造型指令（midpoint、foot、intersection、plane 的各种 mode、section、circumsphere 等），而不是自己算坐标。这样用户改动原图时，新作的图会自动跟随。

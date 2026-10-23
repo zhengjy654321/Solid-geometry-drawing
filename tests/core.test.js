@@ -154,5 +154,22 @@ t('解除约束：竖直拉起的点可以倾斜，度量随之变化', () => {
   near(deg(mval(S, m.main)), 45);
 });
 
+t('绕点转动：锁定在平行于 yOz 的平面内 / 包含当前线且平行于 y 轴', () => {
+  const { S, run } = fresh();
+  run({ op: 'point', name: 'A', coord: [1, 1, 0] });
+  run({ op: 'pointAlongNormal', name: 'F', base: 'A', dist: 2 });
+  run({ op: 'constrain', target: 'F', mode: 'plane', axisPlane: 'yz' });
+  const F = S.byName('F');
+  assert.ok(SG.V.dist(F.v, [1, 1, 2]) < 1e-9, '位置不变');
+  for (const th of [0, 37, 123, -80]) { F.def.th = th; S.recompute(); near(F.v[0], 1); near(SG.V.dist(F.v, [1, 1, 0]), 2); }
+  run({ op: 'release', target: 'F' }); run({ op: 'moveTo', target: 'F', coord: [2, 1, 1] });
+  run({ op: 'constrain', target: 'F', mode: 'plane', containAxis: 'y' });
+  assert.ok(SG.V.dist(S.byName('F').v, [2, 1, 1]) < 1e-9);
+  for (const th of [10, 200]) { S.byName('F').def.th = th; S.recompute(); const v = S.byName('F').v; near(v[0] - 1, v[2]); }
+  const before = S.byName('F').v.slice();
+  run({ op: 'constrain', target: 'F', mode: 'space' });
+  assert.ok(SG.V.dist(S.byName('F').v, before) < 1e-9);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

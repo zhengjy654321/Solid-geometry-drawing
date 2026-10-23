@@ -30,9 +30,7 @@
     if (w.kind === 'xy') return null;
     // 竖直坐标面：创建一个隐藏的辅助平面作为引用
     const axis = w.kind;
-    let o = app.S.objects.find((x) => x.type === 'plane' && x.def.kind === 'planeAxis' && x.def.axis === axis && (x.def.offset || 0) === (w.h || 0) && x.hidden);
-    if (!o) o = app.S.add({ type: 'plane', def: { kind: 'planeAxis', axis, offset: w.h || 0, size: 2 }, name: null, hidden: true });
-    return o.id;
+    return app.C.axisPlane(axis, w.h || 0);
   }
 
   function finishPerp(app, P0, foot, o) {
@@ -123,10 +121,12 @@
     id: 'fixedLen', label: '定长动点', desc: '到定点距离为定长的动点。可限制在工作面内（圆周）或空间中（球面），用摇杆控制方向并描出轨迹',
     inputs: [P('选择定点（中心）')],
     options: [{ key: 'len', label: '定长', type: 'number', def: 2, step: 0.5 },
-      { key: 'mode', label: '范围', type: 'select', def: 'plane', options: [{ value: 'plane', label: '在工作面内' }, { value: 'space', label: '在空间中' }] },
+      { key: 'mode', label: '范围', type: 'select', def: 'plane', options: [{ value: 'plane', label: '平行于工作面' }, { value: 'yz', label: '平行于 yOz 面' }, { value: 'xz', label: '平行于 xOz 面' }, { value: 'xy', label: '平行于 xOy 面' }, { value: 'space', label: '在空间中' }] },
       { key: 'connect', label: '连线', type: 'check', def: true }, { key: 'trace', label: '记录轨迹', type: 'check', def: true }],
     run: (app, a, o) => {
-      const id = app.C.exec({ op: 'fixedLenPoint', anchor: a[0], len: o.len, mode: o.mode, plane: o.mode === 'plane' ? workRef(app) : null, th: 0, ph: 0 }).main;
+      const axis = ['xy', 'yz', 'xz'].includes(o.mode);
+      const plane = o.mode === 'plane' ? workRef(app) : axis ? app.C.axisPlane(o.mode) : null;
+      const id = app.C.exec({ op: 'fixedLenPoint', anchor: a[0], len: o.len, mode: o.mode === 'space' ? 'space' : 'plane', plane, th: 0, ph: 0 }).main;
       if (o.connect) app.C.ensureSegment(a[0], id);
       if (o.trace) app.C.exec({ op: 'trace', point: id });
       return id;
