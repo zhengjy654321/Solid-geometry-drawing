@@ -14,6 +14,8 @@
   new SG.Joystick(app);
   app._vc = new SG.ViewCtl(app);
   const aiPanel = new SG.AIPanel(app);
+  const wizard = { current: null };
+  new SG.ProblemUI.ProblemPanel(app, wizard);
 
   // ------------------------------------------------------------ 工具栏与弹出菜单
   const toolbar = document.getElementById('toolbar');
@@ -130,7 +132,7 @@
   });
 
   const actions = {
-    new: () => { if (!app.S.objects.length) return; UI.modal('新建', h('div', null, '清空画布上的所有图形？（可以用 撤销 恢复）'), [{ label: '取消', value: null }, { label: '清空', primary: true, onClick: () => { app.change('清空', () => app.S.clear()); app.setWork({ kind: 'xy', h: 0 }); return true; } }]); },
+    new: () => SG.ProblemUI.openNew(app, wizard),
     open: () => document.getElementById('fileInput').click(),
     save: () => app.saveFile(),
     exportPNG: () => app.exportPNG(),
@@ -228,6 +230,7 @@
   app.on('work', () => buildToolOpts());
   app.on('viewmode', () => document.getElementById('btnOblique').classList.toggle('on', app.cam.mode === 'oblique'));
   app.on('measureCreated', (id) => { switchTab('measures'); app.select(id); });
+  app.on('openProblemTab', () => { setPanel(true); switchTab('problem'); });
   app.on('settings', () => { buildChecks(); aiPanel.updateModel(); });
 
   // 空画布提示
@@ -236,7 +239,8 @@
     h('div', { style: { fontSize: '20px', color: '#5b6b7c', marginBottom: '6px' } }, '开始画图'),
     h('div', null, '① 左侧 "立体" / "平面图形" 中选择常用图形，一键生成'),
     h('div', null, '② 或用 "面 → 多边形" 在底面上画出底面，再 "拉伸成柱 / 收成锥"'),
-    h('div', null, '③ 选中对象后，画布下方会出现快捷操作；右上角 "AI 辅助" 可用文字描述作图'));
+    h('div', null, '③ 选中对象后，画布下方会出现快捷操作；右上角 "AI 辅助" 可用文字描述作图'),
+    h('div', null, '④ 有题目？点顶栏 "新建" → "从题目新建"，粘贴题目或上传图片，自动画图'));
   stage.appendChild(hello);
   function welcome() { hello.style.display = app.S.objects.length ? 'none' : ''; }
 
@@ -269,6 +273,8 @@
         <li><b>消隐</b>：立体的面会遮挡后面的线，被挡住的部分自动画成虚线；自己用点搭的立体可选中顶点后"生成多面体"获得虚实效果。</li>
         <li><b>导出</b>：PNG / SVG（矢量，适合插入 Word）/ 复制到剪贴板。"斜二测"按钮切换为教材的斜二测画法。</li>
       </ul>
+      <h4>从题目新建</h4>
+      <p>顶栏"新建" → "从题目新建"：粘贴题目文字，或上传 / 粘贴题目截图（含示意图）。AI 识别后会让你确认、修改题目信息（数据、动点、题目要求等），提交后自动画图，并在右侧"题目"标签页生成本题专属的控制面板：动点滑块、AI 设计的演示按钮（播放动点运动、跳到最值位置、作辅助线……）、"与原图同视角"按钮。题目求最值时，AI 与程序会各算一次并显示是否一致；不一致时可"一键检查问题"让 AI 找出原因并修正。识别和画图可以分别选用不同的模型和思考强度。</p>
       <h4>AI 辅助作图</h4>
       <p>在"设置"中填好 API Key（默认 DeepSeek），在右侧"AI 助手"中用文字描述作图要求，例如"过 BD 作与底面成 60° 的平面"。当前图形会自动一并发送，AI 返回的作图指令会被直接画出，不满意可撤销。</p>
       <h4>快捷键</h4>

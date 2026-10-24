@@ -5,7 +5,7 @@
   "description": "立体几何绘图器：快速画出数学题中的立体几何图形",
   "scripts": {
     "start": "npx http-server -p 8080 -c-1 .",
-    "test": "node tests/core.test.js",
-    "test:ui": "node tests/ui.js && node tests/ui2.js && node tests/ai.js && node tests/scenes.js && node tests/view.js"
+    "test": "node tests/core.test.js && node tests/problem.test.js",
+    "test:ui": "node tests/ui.js && node tests/ui2.js && node tests/ai.js && node tests/scenes.js && node tests/view.js && node tests/problem-ui.js"
   }
 }

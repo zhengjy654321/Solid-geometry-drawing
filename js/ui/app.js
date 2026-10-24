@@ -154,7 +154,7 @@
 
     autosave() {
       clearTimeout(this._asT);
-      this._asT = setTimeout(() => UI.LS.set('sg.autosave', { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work }), 400);
+      this._asT = setTimeout(() => UI.LS.set('sg.autosave', { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON() }), 400);
     }
 
     // ------------------------------------------------------------ 选择
@@ -383,8 +383,23 @@
         } catch (e) { UI.toast('复制失败：浏览器不允许访问剪贴板，请改用导出 PNG', 'err'); }
       });
     }
+    /** 当前题目（从题目新建时生成）：题目信息、控制面板、示意图视角等 */
+    setProblem(p, silent) {
+      this.problem = p;
+      if (p && !p.state) p.state = {};
+      this.emit('problem', silent);
+      if (!silent) this.autosave();
+    }
+    problemJSON() {
+      if (!this.problem) return null;
+      const p = Object.assign({}, this.problem);
+      delete p.images;
+      delete p.runtime;
+      return JSON.parse(JSON.stringify(p));
+    }
+
     saveFile() {
-      const data = { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work };
+      const data = { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON() };
       UI.download('立体几何.json', JSON.stringify(data, null, 1), 'application/json');
     }
     loadData(data, keepUndo) {
@@ -397,6 +412,7 @@
         this.S.recompute();
         if (data.cam) this.cam.load(data.cam);
         this.work = data.work || { kind: 'xy', h: 0 };
+        this.setProblem(data.problem || null, true);
         if (keepUndo !== false) this.pushUndo(snap);
         this.sel = [];
         this.afterChange();

@@ -10,7 +10,7 @@
   <header id="topbar">
     <div class="brand"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 8l8-4 8 4v8l-8 4-8-4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 8l8 4 8-4M12 12v8" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span>立体几何绘图器</span></div>
     <div class="group">
-      <button data-act="new" title="新建（清空画布）">新建</button>
+      <button data-act="new" title="新建：空白画板，或从题目新建">新建</button>
       <button data-act="open" title="打开 .json 文件">打开</button>
       <button data-act="save" title="保存为 .json 文件 (Ctrl+S)">保存</button>
       <div class="dropdown">
@@ -73,6 +73,7 @@
         <button data-tab="props" class="active">属性</button>
         <button data-tab="objects">对象</button>
         <button data-tab="measures">度量</button>
+        <button data-tab="problem">题目</button>
         <button data-tab="ai">AI 助手</button>
         <button class="side-close" data-act="togglePanel" title="收起面板">✕</button>
       </div>
@@ -80,6 +81,7 @@
         <div class="pane active" id="pane-props"></div>
         <div class="pane" id="pane-objects"></div>
         <div class="pane" id="pane-measures"></div>
+        <div class="pane" id="pane-problem"></div>
         <div class="pane" id="pane-ai"></div>
       </div>
     </aside>
@@ -112,7 +114,9 @@
   <script src="js/ui/viewctl.js"></script>
   <script src="js/ai/prompt.js"></script>
   <script src="js/ai/client.js"></script>
+  <script src="js/ai/problem.js"></script>
   <script src="js/ui/ai-panel.js"></script>
+  <script src="js/ui/problem-ui.js"></script>
   <script src="js/ui/main.js"></script>
 </body>
 </html>

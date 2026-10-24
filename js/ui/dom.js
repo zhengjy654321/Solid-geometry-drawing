@@ -37,6 +37,7 @@
       const m = document.getElementById('modal');
       const box = m.querySelector('.modal-box');
       box.innerHTML = '';
+      box.className = 'modal-box';
       const close = (v) => { m.classList.add('hidden'); document.removeEventListener('keydown', onKey, true); resolve(v); };
       const onKey = (e) => {
         if (e.key === 'Escape') { e.stopPropagation(); close(null); }

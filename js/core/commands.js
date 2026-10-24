@@ -598,6 +598,10 @@
 
     // ---------------------------- 度量
     op_measure(c) {
+      return this.S.add({ type: 'measure', def: this.measureDef(c), name: null });
+    }
+    /** 度量指令 → 度量定义（不加入场景，可用于临时计算） */
+    measureDef(c) {
       const t = c.type || c.kind;
       const it = c.items || c.targets || [];
       const map = {
@@ -616,7 +620,7 @@
         sphere: () => ({ kind: 'mSphere', sphere: this.obj(it[0]).id, what: c.what || 'r' }),
       };
       if (!map[t]) err('未知的度量类型 "' + t + '"');
-      return this.S.add({ type: 'measure', def: map[t](), name: null });
+      return map[t]();
     }
 
     // ---------------------------- 标注
