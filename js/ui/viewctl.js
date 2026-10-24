@@ -47,7 +47,8 @@
       for (const [cls, t] of [['l', '◀'], ['r', '▶'], ['u', '▲'], ['d', '▼']]) pad.appendChild(h('span', { class: 'vc-arrow ' + cls }, t));
       this.bindPad(pad, knob);
       this.body.appendChild(h('div', { class: 'vc-row' }, this.gizmo, pad));
-      this.body.appendChild(h('div', { class: 'vc-hint' }, '左右推：绕竖直轴转　上下推：前后翻'));
+      this.hint = h('div', { class: 'vc-hint' }, '左右推：绕竖直轴转　上下推：前后翻');
+      this.body.appendChild(this.hint);
 
       // 按钮
       const btn = (label, title, dAz, dEl) => {
@@ -62,7 +63,25 @@
         btn('▼', '图形向下翻 15°（看到更多顶面）', 0, STEP)));
       this.body.appendChild(h('div', { class: 'vc-btns' },
         h('button', { title: '水平转 180°，看图形的背面', onclick: () => app.rotateView(180, 0) }, '转到背面'),
-        h('button', { title: '回到默认的斜视角度', onclick: () => { app.setAngles(32, 18); app.fit(); } }, '复位')));
+        h('button', { title: '回到默认的斜视角度（基准面恢复为底面 xOy）', onclick: () => { if (app.cam.base) app.setViewBase(null); app.setAngles(32, 18); app.fit(); } }, '复位')));
+
+      // 视角基准面
+      this.baseSel = h('select', { class: 'vc-base-sel', title: '旋转时以哪个面作为"地面"' });
+      this.baseSel.addEventListener('change', () => {
+        const v = this.baseSel.value;
+        if (v === 'xy') app.setViewBase(null);
+        else if (v === 'work') {
+          if (app.work.kind === 'ref') app.setViewBase(app.work.ref);
+          else if (app.work.kind === 'xy') app.setViewBase(null);
+          else app.setViewBase(app.C.axisPlane(app.work.kind, app.work.h || 0));
+        } else if (v === 'pick') { app.ui.setTool('setViewBase'); UI.toast('请在图中单击一个面，或依次单击三个点', '', 3000); }
+        this.refresh(true);
+      });
+      this.baseBtns = h('div', { class: 'vc-btns' },
+        h('button', { title: '把基准面摆成课本中底面的样子（正立的斜视角度）', onclick: () => { app.setAngles(app.cam.az, 18); app.fit(); } }, '放平'),
+        h('button', { title: '垂直正对基准面看', onclick: () => app.setAngles(app.cam.az, 89.9) }, '正对'));
+      this.body.appendChild(h('div', { class: 'vc-base' }, h('span', null, '基准面'), this.baseSel));
+      this.body.appendChild(this.baseBtns);
 
       // 高级设置
       this.azIn = h('input', { type: 'number', step: 1, class: 'vc-num' });
@@ -84,8 +103,8 @@
         h('summary', null, '高级设置'),
         h('div', { class: 'vc-field' }, h('label', null, '水平角 θ'), this.azIn, h('span', null, '°')), this.azRg,
         h('div', { class: 'vc-field' }, h('label', null, '俯仰角 φ'), this.elIn, h('span', null, '°')), this.elRg,
-        this.obliqueNote = h('div', { class: 'vc-hint' }, '斜二测画法只能水平转动；俯仰角需切换回普通视图'),
-        h('label', { class: 'vc-check' }, this.upCb, '保持 z 轴朝上（俯仰不超过 90°，不能翻过头顶）'),
+        this.obliqueNote = h('div', { class: 'vc-hint' }, '斜二测画法只能水平转动，且总以底面 xOy 为基准；俯仰角、基准面需切换回普通视图'),
+        h('label', { class: 'vc-check' }, this.upCb, '保持正立（z 轴或基准面法线朝上，俯仰不超过 90°，不能翻过头顶）'),
         h('label', { class: 'vc-check' }, this.lockCb, '用手指 / 鼠标拖动画布旋转时锁定方向（每次只横转或只竖转）'));
       this.body.appendChild(this.adv);
       this.applyOpen();
@@ -217,6 +236,17 @@
       this.elIn.disabled = ob; this.elRg.disabled = ob;
       this.obliqueNote.style.display = ob ? '' : 'none';
       this.lockCb.checked = this.app.rotLockOn();
+      const b = this.app.cam.base;
+      const opts = [['xy', '底面 xOy（默认）']].concat(b ? [['cur', '● ' + this.app.viewBaseLabel()]] : []).concat([['work', '当前工作面'], ['pick', '选择一个面…']]);
+      const key = opts.map((o) => o.join(':')).join('|');
+      if (this._baseKey !== key) {
+        this._baseKey = key;
+        this.baseSel.innerHTML = '';
+        for (const [v, l] of opts) this.baseSel.appendChild(h('option', { value: v }, l));
+      }
+      this.baseSel.value = b ? 'cur' : 'xy';
+      this.baseSel.disabled = ob;
+      this.hint.textContent = b && !ob ? '左右推：绕基准面的法线转　上下推：相对基准面前后翻' : '左右推：绕竖直轴转　上下推：前后翻';
       this.upCb.checked = !!this.app.view.upright;
       this.elRg.min = this.app.view.upright ? -89 : -180;
       this.elRg.max = this.app.view.upright ? 89 : 180;
@@ -235,8 +265,10 @@
       let dir = V.scale(best.axis.dir, best.sgn);
       // 已经是从这个方向看了 → 转到反面
       if (cam.mode !== 'oblique' && V.dot(cam.F, dir) > 0.999) dir = V.neg(dir);
-      if (Math.abs(dir[2]) > 0.5) app.setAngles(null, dir[2] > 0 ? 89.9 : -89.9);
-      else app.setAngles((Math.atan2(dir[1], dir[0]) * 180) / Math.PI, 0);
+      // 在当前基准下求对应的角度（正对基准面法向时取 ±89.9°，保持水平角不变）
+      const ang = cam.anglesFor(dir, null);
+      if (Math.abs(ang.el) > 89.8) app.setAngles(null, ang.el > 0 ? 89.9 : -89.9);
+      else app.setAngles(ang.az, ang.el);
     }
   }
 

@@ -301,8 +301,44 @@
       this.autosave();
     }
 
+    /**
+     * 设置视角基准面：ref 为平面 / 多边形 id 或三点数组；null 恢复为 xOy 底面。
+     * 切换时保持画面不动，只改变之后旋转所参照的"地面"。
+     */
+    setViewBase(ref) {
+      const cam = this.cam;
+      let base = null;
+      if (ref != null) {
+        this.S.recompute();
+        const pl = this.S.ctx.plane(ref);
+        let n = V.norm(pl.n);
+        // 法向取当前看到的那一侧为"上"（几乎侧对着看时，取屏幕上方一侧）
+        const up = V.dot(n, cam.a2), fw = V.dot(n, cam.F);
+        if (Math.abs(fw) > 0.1 ? fw < 0 : up < 0) n = V.neg(n);
+        let e1 = V.sub(pl.u, V.scale(n, V.dot(pl.u, n)));
+        e1 = V.norm(e1);
+        const e2 = V.cross(n, e1);
+        let label;
+        if (Array.isArray(ref)) label = '平面 ' + ref.map((id) => (this.S.map.get(id) || {}).name || '?').join('');
+        else { const o = this.S.map.get(ref); label = (o && o.type === 'polygon' ? '平面 ' : '') + this.S.displayName(o); }
+        base = { e1, e2, n, label };
+      }
+      const F = cam.F.slice(), right = cam.a1.slice();
+      if (cam.mode === 'oblique') { cam.mode = 'ortho'; this.emit('viewmode'); }
+      cam.base = base;
+      const a = cam.anglesFor(F, right);
+      cam.az = a.az; cam.el = this.fixEl(a.el);
+      cam.update();
+      this.render();
+      this.emit('camera');
+      this.emit('viewbase');
+      this.autosave();
+    }
+    viewBaseLabel() { return this.cam.base ? this.cam.base.label || '自定义平面' : '底面 xOy'; }
+
     setView(az, el) {
       this.cam.mode = 'ortho';
+      if (this.cam.base) { this.cam.base = null; this.emit('viewbase'); }
       this.cam.az = az; this.cam.el = el;
       this.cam.update();
       this.fit();

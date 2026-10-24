@@ -205,6 +205,11 @@
     run: (app, a, o) => app.C.exec({ op: 'plane', mode: 'throughLineAngleToPlane', line: a[0], plane: a[1], angle: o.angle, side: +o.side }).main,
   });
   tool({
+    id: 'setViewBase', label: '设为视角基准面', desc: '选择一个面或三个点，之后旋转视角以它为"地面"（绕它的法线左右转、相对它上下翻）',
+    inputs: [PL('选择作为视角基准的面（或三个点）')],
+    run: (app, a) => { app.setViewBase(a[0]); setTimeout(() => app.ui.setTool('select')); UI.toast('视角基准面：' + app.viewBaseLabel(), 'ok'); return null; },
+  });
+  tool({
     id: 'setWork', label: '设为工作面', desc: '选择一个面或三个点作为工作面，之后新建的点都落在这个面上',
     inputs: [PL('选择面或三个点')],
     run: (app, a) => { app.setWork({ kind: 'ref', ref: a[0] }); UI.toast('工作面已切换为：' + app.workPlaneLabel(), 'ok'); return null; },
@@ -396,7 +401,7 @@
     { id: 'select', label: '选择', tools: ['select'] },
     { id: 'point', label: '点', tools: ['point', 'pointCoord', 'midpoint', 'divide', 'dynOnLine', 'intersectCurve', 'intersectLL', 'intersectLP', 'footLine', 'footPlane', 'raise', 'fixedLen', 'reflect', 'reflectPlane', 'centers'] },
     { id: 'line', label: '线', tools: ['segment', 'polyline', 'lineInf', 'ray', 'footLine', 'footPlane', 'parallel', 'extend'] },
-    { id: 'plane', label: '面', tools: ['polygon', 'plane3', 'planeAxis', 'planePerpLine', 'planeParallel', 'planeLinePerp', 'planeLineAngle', 'setWork'] },
+    { id: 'plane', label: '面', tools: ['polygon', 'plane3', 'planeAxis', 'planePerpLine', 'planeParallel', 'planeLinePerp', 'planeLineAngle', 'setWork', 'setViewBase'] },
     { id: 'shape2d', label: '平面图形', tools: TPL2.map((k) => 'tpl_' + k).concat(['tpl_circle']) },
     { id: 'solid', label: '立体', tools: TPL3.map((k) => 'tpl_' + k).concat(['tpl_sphere']), sub: { title: '由底面生成（先用"多边形"画底面）', tools: ['extrudePrism', 'extrudeOblique', 'extrudePyramid', 'pyramidApex', 'extrudeFrustum', 'hull'] } },
     { id: 'sphere', label: '球与圆', tools: ['circumSphere', 'inSphere', 'midSphere', 'circum4', 'sphereSection', 'sphereSolid', 'sphereCR', 'sphereCP', 'circleCR', 'circle3'] },

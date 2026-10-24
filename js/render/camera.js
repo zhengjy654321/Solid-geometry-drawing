@@ -17,7 +17,32 @@
       this.target = [0, 0, 0];
       this.w = 800; this.h = 600;
       this.panX = 0; this.panY = 0;
+      // 视角基准面：水平角绕 base.n 转、俯仰角相对 base 平面；null 表示 xOy 底面
+      this.base = null;
       this.update();
+    }
+
+    /** 当前基准坐标系 {e1, e2, n} */
+    frame() {
+      const b = this.base;
+      return b ? b : { e1: [1, 0, 0], e2: [0, 1, 0], n: [0, 0, 1] };
+    }
+    /** 由视线方向（指向观察者）和屏幕右方向，求在当前基准下的水平角 / 俯仰角（度） */
+    anglesFor(F, right) {
+      const { e1, e2, n } = this.frame();
+      const s = Math.max(-1, Math.min(1, V.dot(F, n)));
+      let el = (Math.asin(s) * 180) / Math.PI;
+      let az;
+      if (Math.abs(s) < 0.9999) az = (Math.atan2(V.dot(F, e2), V.dot(F, e1)) * 180) / Math.PI;
+      else az = right ? (Math.atan2(-V.dot(right, e1), V.dot(right, e2)) * 180) / Math.PI : this.az;
+      // 若屏幕右方向与该角度给出的方向相反，说明视角已翻过头顶
+      if (right) {
+        const a = (az * Math.PI) / 180;
+        const r = V.add(V.scale(e1, -Math.sin(a)), V.scale(e2, Math.cos(a)));
+        if (V.dot(r, right) < 0) { az += 180; el = (el >= 0 ? 180 : -180) - el; }
+      }
+      az = ((az % 360) + 540) % 360 - 180;
+      return { az, el };
     }
 
     setSize(w, h) { this.w = w; this.h = h; }
@@ -33,8 +58,10 @@
         this.F = V.norm(rt([1, k, k]));
       } else {
         const az = this.az * D2R, el = this.el * D2R;
-        const f = [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)];
-        const r = [-Math.sin(az), Math.cos(az), 0];
+        const { e1, e2, n } = this.frame();
+        const comb = (a, b, c) => [a * e1[0] + b * e2[0] + c * n[0], a * e1[1] + b * e2[1] + c * n[1], a * e1[2] + b * e2[2] + c * n[2]];
+        const f = comb(Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el));
+        const r = comb(-Math.sin(az), Math.cos(az), 0);
         const u = V.cross(f, r);
         this.a1 = r; this.a2 = u; this.F = f;
       }
@@ -94,8 +121,8 @@
       this.scale = Math.max(5, Math.min(this.scale, 400));
     }
 
-    toJSON() { return { az: this.az, el: this.el, mode: this.mode, yaw: this.yaw, scale: this.scale, target: this.target, panX: this.panX, panY: this.panY }; }
-    load(j) { Object.assign(this, j); this.update(); }
+    toJSON() { return { az: this.az, el: this.el, mode: this.mode, yaw: this.yaw, scale: this.scale, target: this.target, panX: this.panX, panY: this.panY, base: this.base }; }
+    load(j) { this.base = null; Object.assign(this, j); this.update(); }
   }
 
   SG.Camera = Camera;

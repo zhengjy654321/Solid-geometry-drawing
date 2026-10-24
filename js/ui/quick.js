@@ -147,6 +147,7 @@
       }
       add('面积', measure('area', [p.id]));
       add('设为工作面', () => { app.setWork({ kind: 'ref', ref: p.id }); UI.toast('工作面：' + app.workPlaneLabel(), 'ok'); });
+      add('设为视角基准面', () => { app.setViewBase(p.id); UI.toast('视角基准面：' + app.viewBaseLabel() + '（右下角"视角"中可放平 / 正对 / 恢复）', 'ok', 4000); });
       add(p.style.fill ? '取消填充' : '填充颜色', run('填充', () => () => { p.style.fill = !p.style.fill; }, true));
       if (!isFace) add(p.style.occlude ? '取消遮挡' : '设为实体面（遮挡后面的线）', run('遮挡', () => () => { p.style.occlude = !p.style.occlude; }, true));
     }
