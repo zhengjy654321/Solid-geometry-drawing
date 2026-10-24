@@ -9,7 +9,7 @@ const assert = require('assert');
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + e.stack));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('sg.settings', JSON.stringify({ ai: { apiKey: 'sk-test', think: true } })); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('sg.settings', JSON.stringify({ ai: { apiKey: 'sk-test', think: true, modelThink: 'deepseek-reasoner', modelFast: 'deepseek-chat' } })); });
   await page.reload();
   await page.evaluate(() => {
     SG.AIPrompt.execute(SG.app, [{ op: 'solid', shape: 'cube', a: 2 }]);
@@ -37,7 +37,10 @@ const assert = require('assert');
     log: document.querySelector('.ai-log').innerText,
   }));
   assert.strictEqual(res.req.url, 'https://api.deepseek.com/chat/completions');
-  assert.strictEqual(res.req.body.model, 'deepseek-reasoner');
+  assert.strictEqual(res.req.body.model, 'deepseek-flash', '旧模型名应自动迁移为 deepseek-flash');
+  assert.deepStrictEqual(res.req.body.thinking, { type: 'enabled' });
+  assert.strictEqual(res.req.body.reasoning_effort, 'high');
+  assert.ok(!('temperature' in res.req.body));
   assert.strictEqual(res.req.headers.Authorization, 'Bearer sk-test');
   assert.ok(res.req.body.messages[0].content.includes('作图指令'));
   assert.ok(res.req.body.messages[1].content.includes('"C1"'), '用户消息应包含场景');
@@ -46,6 +49,17 @@ const assert = require('assert');
   assert.ok(Math.abs(res.planes[0][1] - 34.641) < 0.01, '字符串表达式应被转换为数字');
   assert.ok(res.log.includes('已执行 7 条指令'), res.log);
   console.log(res.log.slice(-200));
+  // 关闭思考后再发一次：thinking 应为 disabled，且不带 reasoning_effort
+  await page.click('#pane-ai .sw button:has-text("关闭思考")');
+  await page.fill('#pane-ai textarea', '再作一次');
+  await page.click('#pane-ai button:has-text("发送")');
+  await page.waitForTimeout(600);
+  const req2 = await page.evaluate(() => window.__reqs[1].body);
+  assert.strictEqual(req2.model, 'deepseek-flash');
+  assert.deepStrictEqual(req2.thinking, { type: 'disabled' });
+  assert.ok(!('reasoning_effort' in req2));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sg.settings')).ai);
+  assert.strictEqual(saved.modelThink, 'deepseek-flash');
   await page.screenshot({ path: '/tmp/claude-0/shots/ai.png' });
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console errors');
   console.log('AI test passed');

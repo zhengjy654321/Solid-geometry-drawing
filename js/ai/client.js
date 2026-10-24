@@ -19,12 +19,17 @@
   }
 
   /**
-   * opts: { baseUrl, apiKey, model, messages, provider, think, signal, onDelta({content, reasoning}) }
+   * opts: { baseUrl, apiKey, model, messages, provider, think, effort, signal, onDelta({content, reasoning}) }
+   * DeepSeek：思考模式默认开启，用 "thinking": {"type": "enabled"/"disabled"} 开关，
+   * "reasoning_effort": low/high/max 控制思考强度（见 https://api-docs.deepseek.com/zh-cn/guides/thinking_mode）。
    * 返回 { content, reasoning }
    */
   async function chat(opts) {
     const body = { model: opts.model, messages: opts.messages, stream: true };
-    if (opts.provider === 'deepseek' && !opts.think) body.temperature = 0.2;
+    if (opts.provider === 'deepseek') {
+      body.thinking = { type: opts.think ? 'enabled' : 'disabled' };
+      if (opts.think) body.reasoning_effort = ['low', 'high', 'max'].includes(opts.effort) ? opts.effort : 'high';
+    }
     let res;
     try {
       res = await fetch(endpoint(opts.baseUrl), {

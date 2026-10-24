@@ -61,7 +61,8 @@
     }
     updateModel() {
       const m = this.cfg.think ? this.cfg.modelThink : this.cfg.modelFast;
-      this.modelLbl.textContent = '模型：' + (m || '未设置');
+      const eff = { low: '低', high: '高', max: '最高' }[this.cfg.effort] || '高';
+      this.modelLbl.textContent = '模型：' + (m || '未设置') + (this.cfg.think && this.cfg.provider === 'deepseek' ? '（思考强度：' + eff + '）' : '');
     }
 
     add(cls, ...kids) {
@@ -96,7 +97,7 @@
       let res;
       try {
         res = await SG.AIClient.chat({
-          baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model, provider: cfg.provider, think: cfg.think, messages, signal: ctrl.signal,
+          baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model, provider: cfg.provider, think: cfg.think, effort: cfg.effort, messages, signal: ctrl.signal,
           onDelta: ({ content, reasoning }) => {
             if (reasoning) { det.style.display = ''; think.textContent = reasoning; think.scrollTop = think.scrollHeight; }
             body.textContent = content ? '正在生成作图指令…（' + content.length + ' 字）' : '思考中…（' + Math.round((Date.now() - t0) / 1000) + ' 秒）';
@@ -176,11 +177,18 @@
     const mThink = h('input', { type: 'text', value: ai.modelThink });
     const mFast = h('input', { type: 'text', value: ai.modelFast });
     const hist = h('input', { type: 'number', value: ai.history, min: 0, max: 20 });
+    const models = h('datalist', { id: 'dsModels' }, ['deepseek-flash', 'deepseek-v4-pro'].map((m) => h('option', { value: m })));
+    mThink.setAttribute('list', 'dsModels'); mFast.setAttribute('list', 'dsModels');
+    const effort = h('select', null, [['low', '低（更快、更省）'], ['high', '高（默认）'], ['max', '最高（更复杂的题）']].map(([v, l]) => h('option', { value: v, selected: (ai.effort || 'high') === v }, l)));
+    const effRow = h('div', { class: 'field' }, h('label', null, '思考强度'), effort);
+    const syncEff = () => { effRow.style.display = prov.value === 'deepseek' ? '' : 'none'; };
+    syncEff();
     prov.addEventListener('change', () => {
       const p = SG.PROVIDERS[prov.value];
       if (p.baseUrl) base.value = p.baseUrl;
       if (p.modelThink) mThink.value = p.modelThink;
       if (p.modelFast) mFast.value = p.modelFast;
+      syncEff();
     });
     const showKey = h('button', { class: 'btn', onclick: () => { key.type = key.type === 'password' ? 'text' : 'password'; } }, '👁');
     const testRes = h('span', { class: 'note' });
@@ -188,7 +196,7 @@
       class: 'btn', onclick: async () => {
         testRes.textContent = '测试中…';
         try {
-          const r = await SG.AIClient.chat({ baseUrl: base.value, apiKey: key.value.trim(), model: mFast.value, provider: prov.value, messages: [{ role: 'user', content: '只回复两个字：成功' }] });
+          const r = await SG.AIClient.chat({ baseUrl: base.value, apiKey: key.value.trim(), model: mFast.value, provider: prov.value, think: false, messages: [{ role: 'user', content: '只回复两个字：成功' }] });
           testRes.textContent = '✓ 连接成功：' + r.content.slice(0, 20);
         } catch (e) { testRes.textContent = '✗ ' + e.message; }
       },
@@ -205,8 +213,8 @@
     const body = h('div', null,
       h('h4', { style: { margin: '6px 0' } }, 'AI 辅助作图'),
       f('接口', prov), f('接口地址', base), f('API Key', key, showKey),
-      f('思考模型', mThink), f('非思考模型', mFast), f('记忆轮数', hist),
-      h('div', { class: 'note' }, 'DeepSeek：思考模式默认 deepseek-reasoner，非思考模式默认 deepseek-chat。OpenAI 及其他兼容接口可自行修改地址与模型。API Key 仅保存在本机浏览器（localStorage）中，直接从浏览器发送到你选择的接口。'),
+      f('思考模型', mThink), f('非思考模型', mFast), effRow, f('记忆轮数', hist), models,
+      h('div', { class: 'note' }, 'DeepSeek：模型可填 deepseek-flash（默认，快且便宜）或 deepseek-v4-pro（更强、更贵），思考与非思考可以用同一个模型；"开启 / 关闭思考"通过 thinking 参数切换，思考强度对应 reasoning_effort。OpenAI 及其他兼容接口按"思考 / 非思考"切换模型名，可自行修改地址与模型。API Key 仅保存在本机浏览器（localStorage）中，直接从浏览器发送到你选择的接口。'),
       h('div', { class: 'btnrow' }, test, testRes),
       h('h4', { style: { margin: '14px 0 6px' } }, '显示与绘图'),
       f('标签字号', fsz), f('线宽倍数', lsc), f('被遮挡的线', hid),
@@ -214,7 +222,7 @@
       f('网格间距', gridStep), f('新建点显示标签', labelNew), f('显示顶点圆点', dots));
     UI.modal('设置', body, [{ label: '取消', value: null }, {
       label: '保存', primary: true, onClick: () => {
-        Object.assign(s.ai, { provider: prov.value, baseUrl: base.value.trim(), apiKey: key.value.trim(), modelThink: mThink.value.trim(), modelFast: mFast.value.trim(), history: +hist.value || 0 });
+        Object.assign(s.ai, { provider: prov.value, baseUrl: base.value.trim(), apiKey: key.value.trim(), modelThink: mThink.value.trim(), modelFast: mFast.value.trim(), effort: effort.value, history: +hist.value || 0 });
         Object.assign(v, { fontSize: +fsz.value || 17, lineScale: +lsc.value || 1, hiddenMode: hid.value, snapGrid: snap.checked, snapStep: +snapStep.value || 0.5, gridStep: +gridStep.value || 1, labelNew: labelNew.checked, showDots: dots.checked });
         app.saveSettings();
         app.render();
