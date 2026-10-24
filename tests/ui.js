@@ -89,7 +89,8 @@ const out = process.argv[2] || '/tmp/claude-0/shots';
   await page.click('#toolbar .cat[title="度量"]');
   await page.click('#flyout .tool:has-text("二面角（两个面）")');
   // 侧面 EAB 与 底面
-  const face1 = await page.evaluate(() => { const S = SG.app.S; const f = S.objects.find((o) => o.type === 'polygon' && o.def.pts.length === 3 && o.def.pts.includes(S.get('A').id) && o.def.pts.includes(S.get('B').id)); return SG.app.cam.project(SG.V.centroid(f.v.pts)); });
+  const face1 = await page.evaluate(() => { const S = SG.app.S; const f = S.objects.find((o) => o.type === 'polygon' && o.def.pts.length === 3 && o.def.pts.includes(S.get('A').id) && o.def.pts.includes(S.get('B').id)); const [p0, p1, p2] = f.v.pts; // 取面内靠近锥顶、远离其他顶点的位置
+    const P = SG.app.S.get('P').v, q = SG.V.add(SG.V.scale(P, 0.6), SG.V.scale(SG.V.add(p0, SG.V.add(p1, p2)), 0.4 / 3)); void p0; return SG.app.cam.project(SG.V.lerp(q, SG.V.centroid(f.v.pts), 0.5)); });
   await click([face1[0] + rect.x, face1[1] + rect.y]);
   // 底面通过三个点 A B C
   await click(await scrOf('A')); await click(await scrOf('B')); await click(await scrOf('C'));

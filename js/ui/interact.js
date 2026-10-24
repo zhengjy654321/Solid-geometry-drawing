@@ -398,7 +398,7 @@
       let s;
       if (!t || this.toolId === 'select') {
         const n = this.app.sel.length;
-        s = n ? '已选择 ' + n + ' 个对象。Shift+单击 多选；Delete 删除；Esc 取消选择' : '单击选择对象，拖动蓝色动点；拖动空白处旋转，右键拖动也可旋转，Shift+拖动平移，滚轮缩放';
+        s = n ? '已选择 ' + n + ' 个对象。Shift+单击 多选；Delete 删除；Esc 取消选择' : (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? '点按选择对象，拖动蓝色动点；单指拖动空白处旋转，双指捏合缩放、双指拖动平移；右下角"视角"可精确转动' : '单击选择对象，拖动蓝色动点；拖动空白处旋转，右键拖动也可旋转，Shift+拖动平移，滚轮缩放');
       } else if (t.variadic) {
         const n = this.picked.length;
         s = '<b>' + t.label + '</b>：已选 ' + n + ' 个点。' + (t.variadic === 'closed' ? '单击第一个点闭合，或按 Enter 完成' : '按 Enter 或双击完成');
@@ -625,9 +625,35 @@
       const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 
       cv.addEventListener('contextmenu', (e) => e.preventDefault());
+      // 触屏：记录所有手指，两指时进入"捏合缩放 / 双指平移"
+      this.touches = new Map();
+      const pinchState = () => {
+        const [a, b] = Array.from(this.touches.values());
+        return { dist: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+      };
+      const endTouch = (e) => {
+        if (e.pointerType !== 'touch') return false;
+        this.touches.delete(e.pointerId);
+        if (this.drag && this.drag.kind === 'pinch') {
+          if (this.touches.size < 2) { this.drag = null; this.down = null; this.app.autosave(); }
+          return true;
+        }
+        return false;
+      };
       cv.addEventListener('pointerdown', (e) => {
         cv.setPointerCapture(e.pointerId);
         const [x, y] = pos(e);
+        if (e.pointerType === 'touch') {
+          this.touches.set(e.pointerId, [x, y]);
+          if (this.touches.size >= 2) {
+            // 第二根手指按下：放弃单指操作（已拖动的点照常保存），开始双指手势
+            const d = this.drag;
+            if (d && d.kind === 'point' && !d.pending) this.endDrag();
+            this.drag = Object.assign({ kind: 'pinch' }, pinchState());
+            this.down = null;
+            return;
+          }
+        }
         this.down = { x, y, button: e.button, shift: e.shiftKey, t: Date.now(), moved: false };
         if (e.button === 1 || (e.button === 0 && e.shiftKey && this.toolId !== 'select') || (e.button === 2 && e.shiftKey)) { this.drag = { kind: 'pan', x, y }; return; }
         if (e.button === 2) {
@@ -648,15 +674,35 @@
       cv.addEventListener('pointermove', (e) => {
         const [x, y] = pos(e);
         this.mouse = [x, y];
+        if (e.pointerType === 'touch' && this.touches.has(e.pointerId)) this.touches.set(e.pointerId, [x, y]);
         const d = this.drag;
+        if (d && d.kind === 'pinch') {
+          if (this.touches.size < 2) return;
+          const st = pinchState();
+          this.cam.panX += st.mid[0] - d.mid[0];
+          this.cam.panY += st.mid[1] - d.mid[1];
+          this.zoomAt(st.mid[0], st.mid[1], st.dist / d.dist);
+          d.dist = st.dist; d.mid = st.mid;
+          return;
+        }
         if (this.down && Math.hypot(x - this.down.x, y - this.down.y) > 3) this.down.moved = true;
         if (!d) { this.hoverAt(x, y, e); return; }
         if (d.pending && !(this.down && this.down.moved)) return;
         d.pending = false;
         if (d.kind === 'rotate') {
-          const dx = x - d.x, dy = y - d.y;
+          let dx = x - d.x, dy = y - d.y;
           const cam = this.cam;
-          if (cam.mode === 'oblique') cam.yaw -= dx * 0.4;
+          // 方向锁定：先判断这一下主要是横向还是竖向滑动，之后只按该方向旋转
+          if (this.app.rotLockOn()) {
+            if (!d.axis) {
+              if (d.sx == null) { d.sx = this.down ? this.down.x : x; d.sy = this.down ? this.down.y : y; }
+              const tx = x - d.sx, ty = y - d.sy;
+              if (Math.hypot(tx, ty) < 8) return;
+              d.axis = Math.abs(tx) >= Math.abs(ty) ? 'h' : 'v';
+            }
+            if (d.axis === 'h') dy = 0; else dx = 0;
+          }
+          if (cam.mode === 'oblique') cam.yaw += dx * 0.4;
           else { cam.az -= dx * 0.4; cam.el = Math.max(-89, Math.min(89, cam.el + dy * 0.4)); }
           cam.update();
           d.x = x; d.y = y;
@@ -679,7 +725,9 @@
           }
         }
       });
+      cv.addEventListener('pointercancel', (e) => { endTouch(e); if (!this.touches.size) { this.drag = null; this.down = null; } });
       cv.addEventListener('pointerup', (e) => {
+        if (endTouch(e)) return;
         const [x, y] = pos(e);
         const d = this.drag;
         const down = this.down;
