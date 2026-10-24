@@ -266,13 +266,22 @@
       if (this.view.rotLock != null) return !!this.view.rotLock;
       return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
     }
+    /**
+     * 规范俯仰角：默认可以翻过头顶连续转（取值折回 (-180°, 180°]，越过 ±90° 后图形上下颠倒）；
+     * 打开"保持 z 轴朝上"时限制在 ±89.9°。
+     */
+    fixEl(el) {
+      if (this.view.upright) return Math.max(-89.9, Math.min(89.9, el));
+      el = ((el % 360) + 360) % 360;
+      return el > 180 ? el - 360 : el;
+    }
     /** 按角度旋转视角：dAz 绕竖直轴（正值 = 图形向左转），dEl 俯仰（正值 = 看到更多顶面） */
     rotateView(dAz, dEl) {
       const cam = this.cam;
       if (cam.mode === 'oblique') cam.yaw -= dAz;
       else {
         cam.az += dAz;
-        cam.el = Math.max(-89.9, Math.min(89.9, cam.el + (dEl || 0)));
+        cam.el = this.fixEl(cam.el + (dEl || 0));
       }
       cam.az = ((cam.az % 360) + 540) % 360 - 180;
       cam.update();
@@ -285,7 +294,7 @@
       const cam = this.cam;
       if (cam.mode === 'oblique') { cam.mode = 'ortho'; this.emit('viewmode'); }
       if (az != null) cam.az = ((az % 360) + 540) % 360 - 180;
-      if (el != null) cam.el = Math.max(-89.9, Math.min(89.9, el));
+      if (el != null) cam.el = this.fixEl(el);
       cam.update();
       this.render();
       this.emit('camera');
