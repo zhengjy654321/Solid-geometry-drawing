@@ -10,9 +10,10 @@
       provider: 'deepseek',
       baseUrl: 'https://api.deepseek.com',
       apiKey: '',
-      modelThink: 'deepseek-reasoner',
-      modelFast: 'deepseek-chat',
+      modelThink: 'deepseek-flash',
+      modelFast: 'deepseek-flash',
       think: false,
+      effort: 'high',
       history: 6,
     },
     view: {
@@ -22,7 +23,8 @@
     },
   };
   const PROVIDERS = {
-    deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', modelThink: 'deepseek-reasoner', modelFast: 'deepseek-chat' },
+    // DeepSeek：同一个模型名，用 thinking 参数开关思考、reasoning_effort 控制思考强度
+    deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', modelThink: 'deepseek-flash', modelFast: 'deepseek-flash', thinkingParam: true },
     openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', modelThink: 'gpt-5', modelFast: 'gpt-4.1' },
     custom: { label: '其他（OpenAI 兼容接口）', baseUrl: '', modelThink: '', modelFast: '' },
   };
@@ -42,6 +44,13 @@
       this.C = new SG.Commands(this.S);
       this.cam = new SG.Camera();
       this.settings = deepMerge(DEFAULT_SETTINGS, UI.LS.get('sg.settings', {}));
+      // 旧版保存的 DeepSeek 模型名（deepseek-chat / deepseek-reasoner）已停用，自动换成 deepseek-flash
+      const ai = this.settings.ai;
+      if (ai.provider === 'deepseek') {
+        let changed = false;
+        for (const k of ['modelThink', 'modelFast']) if (['deepseek-chat', 'deepseek-reasoner'].includes(ai[k])) { ai[k] = 'deepseek-flash'; changed = true; }
+        if (changed) UI.LS.set('sg.settings', this.settings);
+      }
       this.view = this.settings.view;
       this.sel = [];
       this.hover = null;
