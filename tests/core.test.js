@@ -197,5 +197,13 @@ t('直线与圆、直线与球面、两圆的交点', () => {
   near(SG.V.dist(S.byName('M').v, [0, 0, 0]), 2); near(S.byName('M').v[1], 1.5);
 });
 
+t('绕点转动：转动平面不能依赖该点本身', () => {
+  const { S, run, C } = fresh();
+  run({ op: 'point', name: 'A', coord: [0, 0, 0] }); run({ op: 'point', name: 'B', coord: [1, 0, 0] });
+  run({ op: 'pointAlongNormal', name: 'F', base: 'A', dist: 2 });
+  assert.throws(() => C.exec({ op: 'constrain', target: 'F', mode: 'plane', plane: ['A', 'B', 'F'] }), /不能经过/);
+  assert.strictEqual(S.byName('F').def.kind, 'alongNormal');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

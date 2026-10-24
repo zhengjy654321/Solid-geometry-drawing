@@ -746,8 +746,11 @@
           const pl = S.add({ type: 'plane', def: { kind: 'planePN', p: anchor, n: V.norm(n) }, name: null, hidden: true });
           pl.desc = '包含 ' + S.displayName(S.map.get(anchor)) + o.name + ' 且平行于 ' + c.containAxis + ' 轴的平面';
           plane = pl.id;
-        } else if (c.plane) plane = this.plane(c.plane);
-        else err('请指定转动平面');
+        } else if (c.plane) {
+          plane = this.plane(c.plane);
+          const ids = Array.isArray(plane) ? plane : [plane];
+          if (ids.some((id) => id === o.id || S.ancestors(id).has(o.id))) err('转动平面不能经过（或依赖于）这个点本身，请换一个平面');
+        } else err('请指定转动平面');
       }
       const def = { kind: 'fixedLen', anchor, len, mode, plane, th: 0, ph: 0 };
       if (mode === 'plane') {
