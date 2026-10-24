@@ -42,6 +42,30 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < (eps || 0.5), (msg 
   await page.mouse.move(pad.x + pad.width - 2, pad.y + pad.height / 2, { steps: 3 });
   await page.waitForTimeout(500); await page.mouse.up();
   const c2 = await cam(); assert.ok(c2.az < c.az - 20 || c2.az > 150, '摇杆向右推，水平角应减小：' + c.az + ' → ' + c2.az); near(c2.el, 33, 2, '只左右推时俯仰不变');
+  console.log('· 连续往下推：可以翻过头顶，不会卡在 90°');
+  await page.evaluate(() => SG.app.setAngles(32, 70));
+  const holdDown = async (ms) => {
+    await page.mouse.move(pad.x + pad.width / 2, pad.y + pad.height / 2); await page.mouse.down();
+    await page.mouse.move(pad.x + pad.width / 2, pad.y + pad.height - 2, { steps: 3 });
+    await page.waitForTimeout(ms); await page.mouse.up();
+  };
+  const elTrack = await page.evaluate(() => { window.__els = []; SG.app.on('camera', () => window.__els.push(SG.app.cam.el)); return true; });
+  void elTrack;
+  await holdDown(900);
+  const els = await page.evaluate(() => window.__els);
+  const maxEl = Math.max(...els), last = els[els.length - 1];
+  console.log('  俯仰角', els[0].toFixed(1), '→ 最大', maxEl.toFixed(1), '→ 最后', last.toFixed(1));
+  assert.ok(maxEl > 95 || last < 0, '应能越过 90° 继续翻转');
+  // 画布上拖动同样不受限
+  await page.evaluate(() => SG.app.setAngles(32, 80));
+  await page.mouse.move(300, 300); await page.mouse.down(); await page.mouse.move(300, 380, { steps: 8 }); await page.mouse.up();
+  c = await cam(); assert.ok(c.el > 95, '画布拖动也应能越过 90°：' + c.el);
+  console.log('· 保持 z 轴朝上：限制在 89.9°');
+  await page.evaluate(() => { SG.app.view.upright = true; SG.app.setAngles(32, 70); });
+  await holdDown(900);
+  c = await cam(); assert.ok(c.el <= 89.9 + 1e-9 && c.el > 85, '打开后应停在 89.9°：' + c.el);
+  await page.evaluate(() => { SG.app.view.upright = false; SG.app.setAngles(32, 18); });
+
   console.log('· 高级设置');
   await page.click('.vc-adv summary');
   await page.fill('.vc-adv input[type=number] >> nth=0', '60'); await page.keyboard.press('Enter');

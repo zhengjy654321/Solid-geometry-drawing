@@ -68,19 +68,24 @@
       this.azIn = h('input', { type: 'number', step: 1, class: 'vc-num' });
       this.elIn = h('input', { type: 'number', step: 1, class: 'vc-num' });
       this.azRg = h('input', { type: 'range', min: -180, max: 180, step: 1 });
-      this.elRg = h('input', { type: 'range', min: -89, max: 89, step: 1 });
+      this.elRg = h('input', { type: 'range', min: -180, max: 180, step: 1 });
       const setAz = (v) => { if (isFinite(v)) { if (app.cam.mode === 'oblique') { app.cam.yaw = v; app.cam.update(); app.render(); } else app.setAngles(v, null); } };
       const setEl = (v) => { if (isFinite(v)) app.setAngles(null, v); };
       this.azIn.addEventListener('change', () => setAz(parseFloat(this.azIn.value)));
       this.elIn.addEventListener('change', () => setEl(parseFloat(this.elIn.value)));
       this.azRg.addEventListener('input', () => setAz(parseFloat(this.azRg.value)));
       this.elRg.addEventListener('input', () => setEl(parseFloat(this.elRg.value)));
+      this.upCb = h('input', {
+        type: 'checkbox', checked: !!app.view.upright,
+        onchange: (e) => { app.view.upright = e.target.checked; app.saveSettings(); app.setAngles(null, app.cam.el); this.refresh(true); },
+      });
       this.lockCb = h('input', { type: 'checkbox', checked: app.rotLockOn(), onchange: (e) => { app.view.rotLock = e.target.checked; app.saveSettings(); } });
       this.adv = h('details', { class: 'vc-adv' },
         h('summary', null, '高级设置'),
         h('div', { class: 'vc-field' }, h('label', null, '水平角 θ'), this.azIn, h('span', null, '°')), this.azRg,
         h('div', { class: 'vc-field' }, h('label', null, '俯仰角 φ'), this.elIn, h('span', null, '°')), this.elRg,
         this.obliqueNote = h('div', { class: 'vc-hint' }, '斜二测画法只能水平转动；俯仰角需切换回普通视图'),
+        h('label', { class: 'vc-check' }, this.upCb, '保持 z 轴朝上（俯仰不超过 90°，不能翻过头顶）'),
         h('label', { class: 'vc-check' }, this.lockCb, '用手指 / 鼠标拖动画布旋转时锁定方向（每次只横转或只竖转）'));
       this.body.appendChild(this.adv);
       this.applyOpen();
@@ -212,6 +217,9 @@
       this.elIn.disabled = ob; this.elRg.disabled = ob;
       this.obliqueNote.style.display = ob ? '' : 'none';
       this.lockCb.checked = this.app.rotLockOn();
+      this.upCb.checked = !!this.app.view.upright;
+      this.elRg.min = this.app.view.upright ? -89 : -180;
+      this.elRg.max = this.app.view.upright ? 89 : 180;
     }
 
     gizmoClick(e) {

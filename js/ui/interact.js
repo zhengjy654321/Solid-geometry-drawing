@@ -656,7 +656,7 @@
             if (d.axis === 'h') dy = 0; else dx = 0;
           }
           if (cam.mode === 'oblique') cam.yaw += dx * 0.4;
-          else { cam.az -= dx * 0.4; cam.el = Math.max(-89, Math.min(89, cam.el + dy * 0.4)); }
+          else { cam.az -= dx * 0.4; cam.el = this.app.fixEl(cam.el + dy * 0.4); }
           cam.update();
           d.x = x; d.y = y;
           this.app.render();
