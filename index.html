@@ -45,6 +45,7 @@
     <div class="spacer"></div>
     <div class="group">
       <button data-act="ai" class="accent" title="AI 辅助作图">✦ AI 辅助</button>
+      <button data-act="togglePanel" id="btnPanel" title="显示 / 收起右侧面板">☰ 面板</button>
       <button data-act="settings" title="设置">⚙ 设置</button>
       <button data-act="help" title="使用说明">?</button>
     </div>
@@ -60,6 +61,7 @@
       <div id="quickbar" class="hidden"></div>
       <div id="joystick" class="hidden"></div>
       <div id="status"></div>
+      <div id="viewctl"></div>
       <div id="zoomctl">
         <button data-act="zoomIn" title="放大">＋</button>
         <button data-act="zoomOut" title="缩小">－</button>
@@ -72,6 +74,7 @@
         <button data-tab="objects">对象</button>
         <button data-tab="measures">度量</button>
         <button data-tab="ai">AI 助手</button>
+        <button class="side-close" data-act="togglePanel" title="收起面板">✕</button>
       </div>
       <div class="tabpanes">
         <div class="pane active" id="pane-props"></div>
@@ -106,6 +109,7 @@
   <script src="js/ui/quick.js"></script>
   <script src="js/ui/panels.js"></script>
   <script src="js/ui/joystick.js"></script>
+  <script src="js/ui/viewctl.js"></script>
   <script src="js/ai/prompt.js"></script>
   <script src="js/ai/client.js"></script>
   <script src="js/ui/ai-panel.js"></script>

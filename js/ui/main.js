@@ -12,6 +12,7 @@
   const ui = new SG.Interact(app);
   app.ui = ui;
   new SG.Joystick(app);
+  app._vc = new SG.ViewCtl(app);
   const aiPanel = new SG.AIPanel(app);
 
   // ------------------------------------------------------------ 工具栏与弹出菜单
@@ -150,7 +151,8 @@
     },
     fit: () => app.fit(),
     toggleLabels: () => app.emit('toggleLabels'),
-    ai: () => switchTab('ai'),
+    ai: () => { setPanel(true); switchTab('ai'); },
+    togglePanel: () => setPanel(document.body.classList.contains('side-hidden')),
     settings: () => SG.openSettings(app),
     help: () => showHelp(),
     zoomIn: () => ui.zoomAt(app.cam.w / 2, app.cam.h / 2, 1.25),
@@ -178,6 +180,16 @@
     UI.toast(show ? '已显示所有点的标签' : '已隐藏所有点的标签');
   });
 
+  // ------------------------------------------------------------ 右侧面板（窄屏时为抽屉）
+  const narrow = () => window.innerWidth <= 1000;
+  function setPanel(show) {
+    document.body.classList.toggle('side-hidden', !show);
+    document.getElementById('btnPanel').classList.toggle('on', show);
+    if (!narrow()) UI.LS.set('sg.sideShown', show);
+    app.render();
+  }
+  setPanel(narrow() ? false : UI.LS.get('sg.sideShown', true));
+
   // ------------------------------------------------------------ 标签页
   function switchTab(name) {
     for (const b of document.querySelectorAll('#side .tabs button')) b.classList.toggle('active', b.dataset.tab === name);
@@ -186,7 +198,7 @@
     if (name === 'ai') setTimeout(() => aiPanel.input.focus(), 30);
   }
   const curTab = () => (document.querySelector('#side .tabs button.active') || {}).dataset.tab;
-  for (const b of document.querySelectorAll('#side .tabs button')) b.addEventListener('click', () => switchTab(b.dataset.tab));
+  for (const b of document.querySelectorAll('#side .tabs button[data-tab]')) b.addEventListener('click', () => switchTab(b.dataset.tab));
 
   function refreshPanels() {
     const t = curTab();
@@ -234,6 +246,8 @@
       <h4>基本操作</h4>
       <ul>
         <li><b>旋转视角</b>：在空白处按住左键拖动，或按住右键拖动；<b>平移</b>：Shift + 拖动 或 中键拖动；<b>缩放</b>：滚轮。</li>
+        <li><b>手机 / 平板</b>：单指拖动空白处旋转；<b>双指捏合缩放、双指拖动平移</b>。右上角"☰ 面板"可收起 / 打开右侧面板。</li>
+        <li><b>视角控制器</b>（画布右下角）：单击坐标轴端点 x / y / z 就从该方向看（再点一次看反面）；<b>摇杆往哪推，图形就往哪转</b>（左右 = 绕竖直轴转，上下 = 前后翻）；◀ ▶ ▲ ▼ 每次转 15°，长按连续转；"转到背面"一键转 180°。"高级设置"里可直接输入角度、开关拖动方向锁定。</li>
         <li><b>选择</b>：单击对象；Shift + 单击 多选；双击立体的面选中整个立体。选中后画布下方会出现<b>快捷操作</b>。</li>
         <li><b>拖动动点</b>：蓝色的点是动点（线上的点、面上的点、定长动点……），可直接拖动，也可以用左下角的<b>摇杆</b>控制；自由点按住 Shift 拖动可沿法向上下移动；按住 Alt 不吸附。</li>
         <li><b>撤销 / 重做</b>：Ctrl+Z / Ctrl+Y。<b>删除</b>：Delete。<b>标签</b>：L 键一键显示 / 隐藏所有点的名称。</li>

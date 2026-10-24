@@ -250,9 +250,46 @@
         if (o.type === 'plane') for (const p of SG.Renderer.planeCorners(o.v, o.style.size)) add(p);
       }
       if (!isFinite(min[0])) { min = [-2, -2, 0]; max = [2, 2, 2]; }
-      this.cam.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+      // 右下角的视角控制器展开时，让出它所占的宽度，避免图形被挡住
+      const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+      const vc = document.getElementById('viewctl');
+      const res = vc && !vc.classList.contains('closed') && vc.offsetWidth && W > 500 ? vc.offsetWidth + 16 : 0;
+      this.cam.setSize(W - res, H);
       this.cam.fit(min, max);
+      this.cam.setSize(W, H);
+      this.cam.panX = -res / 2;
       this.render();
+    }
+
+    /** 拖动旋转时是否锁定方向（未设置时：触屏设备默认开启） */
+    rotLockOn() {
+      if (this.view.rotLock != null) return !!this.view.rotLock;
+      return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    }
+    /** 按角度旋转视角：dAz 绕竖直轴（正值 = 图形向左转），dEl 俯仰（正值 = 看到更多顶面） */
+    rotateView(dAz, dEl) {
+      const cam = this.cam;
+      if (cam.mode === 'oblique') cam.yaw -= dAz;
+      else {
+        cam.az += dAz;
+        cam.el = Math.max(-89.9, Math.min(89.9, cam.el + (dEl || 0)));
+      }
+      cam.az = ((cam.az % 360) + 540) % 360 - 180;
+      cam.update();
+      this.render();
+      this.emit('camera');
+      this.autosave();
+    }
+    /** 直接设置视角（不改变缩放与位置） */
+    setAngles(az, el) {
+      const cam = this.cam;
+      if (cam.mode === 'oblique') { cam.mode = 'ortho'; this.emit('viewmode'); }
+      if (az != null) cam.az = ((az % 360) + 540) % 360 - 180;
+      if (el != null) cam.el = Math.max(-89.9, Math.min(89.9, el));
+      cam.update();
+      this.render();
+      this.emit('camera');
+      this.autosave();
     }
 
     setView(az, el) {
