@@ -1,0 +1,13 @@
+name: 删除多余的发布（临时）
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for t in v1.0.6 v1.0.5; do gh release delete "$t" --cleanup-tag -y -R "$GITHUB_REPOSITORY" && echo "已删除 $t"; done
