@@ -305,6 +305,7 @@
     // ------------------------------------------------------------ 单击（工具）
     toolClick(x, y, ev) {
       const t = this.tool;
+      if (t.click) { t.click(this.app, this, x, y, ev); return; }
       const input = this.currentInput();
       if (!input) return;
       const hits = this.hitAll(x, y);
@@ -716,7 +717,7 @@
           this.dragTo(x, y, e);
         } else if (d.kind === 'label') {
           const o = this.S.map.get(d.id);
-          const anchor = o.type === 'measure' ? o.v.at : o.v;
+          const anchor = o.type === 'measure' ? o.v.at : o.type === 'mark' ? o.v && o.v.p : o.v;
           if (anchor && Array.isArray(anchor)) {
             const p = this.cam.project(anchor);
             o.style.labelOffset = [x - p[0], y - p[1]];
@@ -734,7 +735,11 @@
         this.drag = null;
         this.down = null;
         if (d && d.kind === 'point' && !d.pending) { this.drag = d; this.endDrag(); return; }
-        if (d && d.kind === 'label') { if (d.moved) { this.app.pushUndo(d.snap); this.app.afterChange(); } else this.clickSelect(x, y, e); return; }
+        if (d && d.kind === 'label') {
+          if (d.moved) { this.app.pushUndo(d.snap); this.app.afterChange(); }
+          else { this.app.select(d.id); if (SG.TextUI) SG.TextUI.labelMenu(this.app, d.id, e.clientX, e.clientY); }
+          return;
+        }
         if (d && (d.kind === 'rotate' || d.kind === 'pan') && !d.pending) { this.app.autosave(); return; }
         if (!down || down.moved || down.button !== 0) return;
         if (this.toolId === 'select') this.clickSelect(x, y, e);
@@ -799,7 +804,7 @@
         if (app.sel.length) { e.preventDefault(); const ids = app.sel.slice(); app.change('删除', () => app.S.remove(ids)); }
         return;
       }
-      const map = { v: 'select', p: 'point', s: 'segment', g: 'polygon', m: 'midpoint' };
+      const map = { v: 'select', p: 'point', s: 'segment', g: 'polygon', m: 'midpoint', t: 'text' };
       if (map[k]) { this.setTool(map[k]); return; }
       if (k === 'f' || k === 'F') { app.fit(); return; }
       if (k === 'l' || k === 'L') { app.emit('toggleLabels'); return; }

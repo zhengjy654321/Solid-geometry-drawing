@@ -478,7 +478,9 @@
       const st = styleOf(o, o.style);
       if (o.def.kind === 'text') {
         const p = P2(o.v.p);
-        dl.labels.push({ k: 'text', x: p[0] + 6, y: p[1] - 10, parts: parseText(o.def.text), size: (view.fontSize || 17) - 2, color: st.color, align: 'left', id: o.id });
+        const off = o.style.labelOffset || [6, -10];
+        const txt = SG.TextVars ? SG.TextVars.render(S, o.def.text) : o.def.text;
+        dl.labels.push({ k: 'text', x: p[0] + off[0], y: p[1] + off[1], parts: parseText(txt), size: o.style.fontSize || (view.fontSize || 17) - 2, color: st.color, align: 'left', id: o.id, label: true, bg: o.style.bg ? 'rgba(255,255,255,0.8)' : null });
         continue;
       }
       const { a, o: O, b } = o.v;

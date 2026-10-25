@@ -286,6 +286,19 @@
   tool({ id: 'rightAngle', label: '直角标记', desc: '依次选 A、直角顶点 O、B', inputs: [Pe('点 A'), Pe('直角顶点'), Pe('点 B')], run: (app, a) => app.C.exec({ op: 'rightAngle', points: a }).main });
   tool({ id: 'angleMark', label: '角标记（圆弧）', desc: '依次选 A、顶点 O、B', inputs: [Pe('点 A'), Pe('角的顶点'), Pe('点 B')], options: [{ key: 'count', label: '弧数', type: 'select', def: 1, options: [{ value: 1, label: '1' }, { value: 2, label: '2' }, { value: 3, label: '3' }] }], run: (app, a, o) => app.C.exec({ op: 'angleMark', points: a, count: +o.count }).main });
   tool({ id: 'textMark', label: '文字标注', desc: '在点旁边添加文字', inputs: [P('选择位置（点）')], options: [{ key: 'text', label: '文字', type: 'text', def: '' }], run: (app, a, o) => app.C.exec({ op: 'text', at: a[0], text: o.text || '文字' }).main });
+  tool({
+    id: 'text', label: '文字', desc: '单击点（文字跟随该点）、线段（跟随线段中点）或空白处（固定位置）放置文字；文字中可插入随图形变化的变量，如 ∠ABC 的度数',
+    inputs: [{ type: 'point', create: true, label: '单击点、线段或空白处放置文字' }],
+    click: (app, ui, x, y) => {
+      const hh = ui.hitAll(x, y);
+      const lo = hh.line && app.S.map.get(hh.line);
+      let anchor;
+      if (hh.point) anchor = { at: hh.point };
+      else if (lo && SG.LINE_TYPES.has(lo.type)) anchor = { line: lo.id };
+      else { const sn = ui.snap(x, y, { altKey: true }); anchor = { pos: sn ? sn.pos : [0, 0, 0] }; }
+      SG.TextUI.createText(app, anchor);
+    },
+  });
   tool({ id: 'trace', label: '追踪轨迹', desc: '选择一个点，它移动时会留下轨迹线', inputs: [Pe('选择要追踪的点')], run: (app, a) => app.C.exec({ op: 'trace', point: a[0] }).main });
 
   // ============================================================ 模板
@@ -395,6 +408,7 @@
     sphere: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><ellipse cx="12" cy="12" rx="8.5" ry="3" fill="none" stroke="currentColor" stroke-dasharray="2 2"/>',
     section: '<path d="M4 9l8-5 8 5v8l-8 4-8-4z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4 13l8-3 8 3-8 4z" fill="#f8c77a" stroke="#d07a00" stroke-width="1.2"/>',
     measure: '<path d="M3 17L17 3l4 4L7 21z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2" stroke="currentColor" stroke-width="1.4"/>',
+    text: '<path d="M5 6V4h14v2M12 4v16M9 20h6" fill="none" stroke="currentColor" stroke-width="2"/>',
     mark: '<path d="M5 19V5M5 19h14" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M5 13h6v6" fill="none" stroke="currentColor" stroke-width="1.4"/>',
   };
   const CATS = [
@@ -407,7 +421,8 @@
     { id: 'sphere', label: '球与圆', tools: ['circumSphere', 'inSphere', 'midSphere', 'circum4', 'sphereSection', 'sphereSolid', 'sphereCR', 'sphereCP', 'circleCR', 'circle3'] },
     { id: 'section', label: '截面折叠', tools: ['section', 'fold', 'rotatePoint'] },
     { id: 'measure', label: '度量', tools: measureTools },
-    { id: 'mark', label: '标注轨迹', tools: ['rightAngle', 'angleMark', 'textMark', 'trace'] },
+    { id: 'mark', label: '标注轨迹', tools: ['rightAngle', 'angleMark', 'trace'] },
+    { id: 'text', label: '文字', tools: ['text'] },
   ];
 
   SG.Tools = { byId, CATS, ICONS, openTemplate, workRef };

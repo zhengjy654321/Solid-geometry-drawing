@@ -16,6 +16,12 @@
   const aiPanel = new SG.AIPanel(app);
   const wizard = { current: null };
   new SG.ProblemUI.ProblemPanel(app, wizard);
+  new SG.Controls.ControlsPanel(app);
+  app.hudUI = new SG.HUD(app);
+  const chkHud = document.getElementById('chkExportHud');
+  chkHud.checked = app.view.exportHud !== false;
+  chkHud.addEventListener('change', () => { app.view.exportHud = chkHud.checked; app.saveSettings(); });
+  chkHud.addEventListener('click', (e) => e.stopPropagation());
 
   // ------------------------------------------------------------ 工具栏与弹出菜单
   const toolbar = document.getElementById('toolbar');

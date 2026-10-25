@@ -467,10 +467,15 @@
     deps: (d) => [d.a, d.o, d.b],
     eval: (d, c) => ({ a: c.pt(d.a), o: c.pt(d.o), b: c.pt(d.b) }),
   });
+  /** 文字：跟随点（at）、跟随线段中点（line），或固定在空间某处（pos） */
   reg('text', {
     type: 'mark',
-    deps: (d) => refsOf(d.at),
-    eval: (d, c) => ({ p: d.at ? c.pt(d.at) : d.pos }),
+    deps: (d) => refsOf(d.at).concat(refsOf(d.line)),
+    eval: (d, c) => {
+      if (d.at) return { p: c.pt(d.at) };
+      if (d.line) { const L = c.line(d.line); return { p: V.mid(L.a, L.b) }; }
+      return { p: d.pos || [0, 0, 0] };
+    },
   });
 
   function depsOfDef(def) {

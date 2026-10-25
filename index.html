@@ -19,6 +19,8 @@
           <button data-act="exportPNG">导出 PNG 图片</button>
           <button data-act="exportSVG">导出 SVG 矢量图</button>
           <button data-act="copyPNG">复制图片到剪贴板</button>
+          <div class="sep"></div>
+          <label class="dd-check"><input type="checkbox" id="chkExportHud"> 附带左上角面板的内容</label>
         </div>
       </div>
     </div>
@@ -61,6 +63,7 @@
       <div id="quickbar" class="hidden"></div>
       <div id="joystick" class="hidden"></div>
       <div id="status"></div>
+      <div id="hud" class="hidden"></div>
       <div id="viewctl"></div>
       <div id="zoomctl">
         <button data-act="zoomIn" title="放大">＋</button>
@@ -74,6 +77,7 @@
         <button data-tab="objects">对象</button>
         <button data-tab="measures">度量</button>
         <button data-tab="problem">题目</button>
+        <button data-tab="controls">控制</button>
         <button data-tab="ai">AI 助手</button>
         <button class="side-close" data-act="togglePanel" title="收起面板">✕</button>
       </div>
@@ -82,6 +86,7 @@
         <div class="pane" id="pane-objects"></div>
         <div class="pane" id="pane-measures"></div>
         <div class="pane" id="pane-problem"></div>
+        <div class="pane" id="pane-controls"></div>
         <div class="pane" id="pane-ai"></div>
       </div>
     </aside>
@@ -99,6 +104,7 @@
   <script src="js/core/solids.js"></script>
   <script src="js/core/measure.js"></script>
   <script src="js/core/commands.js"></script>
+  <script src="js/core/textvars.js"></script>
   <!-- 渲染 -->
   <script src="js/render/camera.js"></script>
   <script src="js/render/renderer.js"></script>
@@ -110,11 +116,15 @@
   <script src="js/ui/interact.js"></script>
   <script src="js/ui/quick.js"></script>
   <script src="js/ui/panels.js"></script>
+  <script src="js/ui/textui.js"></script>
   <script src="js/ui/joystick.js"></script>
   <script src="js/ui/viewctl.js"></script>
   <script src="js/ai/prompt.js"></script>
   <script src="js/ai/client.js"></script>
   <script src="js/ai/problem.js"></script>
+  <script src="js/ui/actions.js"></script>
+  <script src="js/ui/controls.js"></script>
+  <script src="js/ui/hud.js"></script>
   <script src="js/ui/models.js"></script>
   <script src="js/ui/ai-panel.js"></script>
   <script src="js/ui/problem-ui.js"></script>

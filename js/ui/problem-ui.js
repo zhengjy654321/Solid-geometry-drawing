@@ -326,6 +326,8 @@
         document.getElementById('modal').classList.add('hidden');
         app.change('清空', () => app.S.clear());
         app.setWork({ kind: 'xy', h: 0 });
+        app.hud.items = [];
+        app.setControls([]);
         app.setProblem(null);
       }),
       card('✦', '从题目新建', '粘贴题目文字或上传题目图片，AI 识别后由你确认，再自动画图并生成题目控制面板', () => {
@@ -344,6 +346,16 @@
       this.pane = document.getElementById('pane-problem');
       this.msg = '';
       this.check = null;
+      this.runner = new SG.ActionRunner(app, {
+        params: () => ((this.pb && this.pb.panel && this.pb.panel.params) || []),
+        figureView: () => this.figureView(),
+        extremum: (i) => this.jumpExtremum(i),
+        onMsg: (t) => this.setMsg(t),
+        state: () => (this.pb ? this.pb.state : {}),
+        onChange: () => this.render(),
+      });
+      app.runners = app.runners || {};
+      app.runners.problem = this.runner;
       app.on('problem', () => { this.stop(true); this.check = null; this.msg = ''; this.verifyAll(); this.render(); });
       app.on('live', () => this.refreshValues());
       app.on('change', () => this.refreshValues());
@@ -384,63 +396,11 @@
     }
 
     // ---------------------------------------------- 动作执行
-    findParam(id) {
-      const prm = ((this.pb.panel && this.pb.panel.params) || []).find((p) => p.id === id || p.target === id);
-      if (!prm) throw new Error('找不到参数 ' + id);
-      return P.resolveParam(this.app, prm);
-    }
-    tween(rs, targets, ms) {
-      const app = this.app;
-      ms = ms == null ? 600 : ms;
-      const from = rs.map((r) => P.getP(app, r));
-      const snap = app.snapshot();
-      return new Promise((resolve) => {
-        const t0 = performance.now();
-        const step = (t) => {
-          const k = Math.min(1, (t - t0) / ms), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-          rs.forEach((r, i) => P.setP(app, r, from[i] + (targets[i] - from[i]) * e));
-          app.live();
-          if (k < 1) requestAnimationFrame(step);
-          else { app.pushUndo(snap); app.afterChange(); resolve(); }
-        };
-        requestAnimationFrame(step);
-      });
-    }
-    play(a) {
-      const app = this.app;
-      this.stop();
-      const r = this.findParam(a.param);
-      const from = a.from != null ? +a.from : r.min, to = a.to != null ? +a.to : r.max;
-      const per = Math.max(0.5, +a.seconds || 4) * 1000, loop = a.loop !== false;
-      if (a.trace) {
-        app.change('轨迹', () => {
-          const tr = app.C.exec({ op: 'trace', point: a.tracePoint || r.o.id });
-          const o = app.S.map.get(tr.main);
-          if (o) { o.recording = true; o.data = []; }
-        });
-      }
-      const snap = app.snapshot();
-      const t0 = performance.now();
-      const st = { param: a.param, snap, raf: 0 };
-      const frame = (t) => {
-        let k = (t - t0) / per;
-        if (!loop && k >= 1) { P.setP(app, r, to); app.live(); this.stop(); return; }
-        k = k % 2; if (k > 1) k = 2 - k;
-        P.setP(app, r, from + (to - from) * k);
-        app.live();
-        st.raf = requestAnimationFrame(frame);
-      };
-      st.raf = requestAnimationFrame(frame);
-      this.playing = st;
-      this.render();
-    }
-    stop(silent) {
-      const st = this.playing;
-      if (!st) return;
-      cancelAnimationFrame(st.raf);
-      this.playing = null;
-      if (!silent) { this.app.pushUndo(st.snap); this.app.afterChange(); this.render(); }
-    }
+    findParam(id) { return this.runner.param(id); }
+    tween(rs, targets, ms) { return this.runner.tween(rs, targets, ms); }
+    play(a) { this.runner.play(a, 'p:' + a.param); }
+    stop(silent) { this.runner.stop(silent); }
+    get playing() { return this.runner.playing; }
     async jumpExtremum(i) {
       const pb = this.pb;
       const ex = pb.panel.extrema[i];
@@ -452,72 +412,7 @@
       await this.tween(ex.params.map((id) => this.findParam(id)), v.res.at);
       this.setMsg((ex.label || '最值') + '：程序计算结果为 ' + this.fmtVal(ex, v.res.value) + '，此时 ' + ex.params.map((id, k) => this.paramLabel(id) + ' = ' + SG.Exact.fmtNum(v.res.at[k], 4)).join('，'));
     }
-    async runButton(b, bi) {
-      const app = this.app, S = app.S;
-      for (let ai = 0; ai < (b.actions || []).length; ai++) {
-        const a = b.actions[ai];
-        try {
-          switch (a.do) {
-            case 'set': { const r = this.findParam(a.param); this.stop(); await this.tween([r], [+a.value]); break; }
-            case 'play': this.play(a); break;
-            case 'stop': this.stop(); break;
-            case 'extremum': await this.jumpExtremum(+a.index || 0); break;
-            case 'show': case 'hide': case 'toggle':
-              app.change('显示', () => {
-                for (const n of a.targets || []) {
-                  const o = S.get(n);
-                  if (!o) continue;
-                  o.hidden = a.do === 'hide' ? true : a.do === 'show' ? false : !o.hidden;
-                }
-              });
-              break;
-            case 'draw': {
-              const key = 'b' + bi + 'a' + ai;
-              const st = this.pb.state;
-              st.drawn = st.drawn || {};
-              const ids = (st.drawn[key] || []).filter((id) => S.map.has(id));
-              if (ids.length) {
-                const show = ids.some((id) => S.map.get(id).hidden);
-                app.change('显示', () => { for (const id of ids) S.map.get(id).hidden = !show; });
-              } else {
-                const r = SG.AIPrompt.execute(app, a.commands || []);
-                st.drawn[key] = r.created;
-                for (const id of r.created) { const o = S.map.get(id); if (o && o.type === 'point') o.style.label = true; }
-                app.render();
-                app.autosave();
-              }
-              break;
-            }
-            case 'view':
-              if (a.preset === 'figure') this.figureView();
-              else if (a.preset === 'default' || a.az == null) app.setView(32, 18);
-              else { if (app.cam.base) app.setViewBase(null); app.setAngles(+a.az, a.el != null ? +a.el : app.cam.el); }
-              break;
-            case 'trace': {
-              const r = this.findParam(a.param);
-              const target = a.point ? S.get(a.point) : r.o;
-              if (!target) throw new Error('找不到要追踪的点');
-              if (a.mode === 'clear') { app.change('清除轨迹', () => { for (const o of S.objects) if (o.type === 'trace' && o.def.p === target.id) o.data = []; }); break; }
-              app.change('生成轨迹', () => {
-                const tr = S.map.get(app.C.exec({ op: 'trace', point: target.id }).main);
-                const v0 = P.getP(app, r), N = 300, data = [];
-                for (let i = 0; i <= N; i++) { P.setP(app, r, r.min + ((r.max - r.min) * i) / N); S.recompute(); if (target.v) data.push(target.v.slice()); }
-                P.setP(app, r, v0);
-                tr.data = data; tr.recording = false;
-              });
-              break;
-            }
-            case 'text': this.setMsg(a.text || ''); break;
-            case 'measure': app.change('度量', () => app.C.exec(Object.assign({ op: 'measure' }, a.measure))); break;
-            default: throw new Error('未知动作 ' + a.do);
-          }
-        } catch (e) {
-          UI.toast('按钮"' + (b.label || '') + '"的第 ' + (ai + 1) + ' 个动作出错：' + e.message, 'err', 5000);
-          this.setMsg('⚠ ' + (b.label || '') + '：' + e.message);
-          return;
-        }
-      }
-    }
+    runButton(b, bi) { return this.runner.runSafe(b.actions || [], 'b' + bi, b.label); }
     figureView() {
       const pb = this.pb;
       if (!pb.figureView && pb.info && pb.info.figure && Object.keys(pb.info.figure.points || {}).length >= 3) pb.figureView = P.fitView(this.app, pb.info.figure.points, pb.info.figure.aspect);
@@ -608,9 +503,10 @@
           rng.addEventListener('input', () => { if (!snap) snap = app.snapshot(); P.setP(app, r, +rng.value); num.value = (+rng.value).toFixed(4); app.live(); });
           rng.addEventListener('change', () => { if (snap) { app.pushUndo(snap); snap = null; app.afterChange(); } });
           num.addEventListener('change', () => { const v = parseFloat(num.value); if (isFinite(v)) { this.stop(); app.change('参数', () => P.setP(app, r, Math.max(r.min, Math.min(r.max, v)))); } });
-          const playing = this.playing && this.playing.param === prm.id;
+          const playing = this.runner.isPlaying('p:' + prm.id);
           box.appendChild(h('div', { class: 'pp-param' },
-            h('div', { class: 'pp-plabel' }, prm.label || prm.target, h('small', null, '  范围 ' + SG.Exact.fmtNum(r.min, 3) + ' ～ ' + SG.Exact.fmtNum(r.max, 3))),
+            h('div', { class: 'pp-plabel' }, prm.label || prm.target, h('small', null, '  范围 ' + SG.Exact.fmtNum(r.min, 3) + ' ～ ' + SG.Exact.fmtNum(r.max, 3)),
+              h('button', { class: 'pp-pin small' + (app.hudHas('pprm', prm.id) ? ' on' : ''), title: '上屏：显示在画布左上角', onclick: () => { app.hudToggle('pprm', prm.id); this.render(); } }, '📌')),
             h('div', { class: 'field' }, num, rng, h('button', { class: 'btn' + (playing ? ' primary' : ''), title: '在范围内来回运动', onclick: () => (playing ? this.stop() : this.play({ param: prm.id, loop: true })) }, playing ? '■' : '▶'))));
           this.sliders.push({ r, num, rng });
         }
@@ -621,7 +517,12 @@
       const btns = panel.buttons || [];
       if (btns.length) {
         const box = h('div', { class: 'sec' }, h('h5', null, '演示'));
-        btns.forEach((b, bi) => box.appendChild(h('button', { class: 'pp-btn', title: b.desc || '', onclick: () => this.runButton(b, bi) }, h('b', null, b.label || '按钮'), b.desc ? h('small', null, b.desc) : null)));
+        btns.forEach((b, bi) => {
+          const pinned = app.hudHas('pbtn', String(bi));
+          box.appendChild(h('div', { class: 'pp-btn-row' },
+            h('button', { class: 'pp-btn', title: b.desc || '', onclick: () => this.runButton(b, bi) }, h('b', null, b.label || '按钮'), b.desc ? h('small', null, b.desc) : null),
+            h('button', { class: 'pp-pin' + (pinned ? ' on' : ''), title: pinned ? '从左上角面板移除' : '上屏：显示在画布左上角', onclick: () => { app.hudToggle('pbtn', String(bi)); this.render(); } }, '📌')));
+        });
         if (this.playing) box.appendChild(h('div', { class: 'btnrow' }, h('button', { onclick: () => this.stop() }, '■ 停止动画')));
         pane.appendChild(box);
       }

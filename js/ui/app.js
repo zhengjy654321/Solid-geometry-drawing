@@ -18,7 +18,7 @@
     },
     view: {
       fontSize: 17, lineScale: 1, hiddenMode: 'dashed', gridStep: 1, gridExtent: 5,
-      snapGrid: true, snapStep: 0.5, showDots: true, labelNew: false,
+      snapGrid: true, snapStep: 0.5, showDots: true, labelNew: false, exportHud: true,
       axes: false, axisNumbers: false, ground: false, grid3d: false, coords: false, workGrid: true,
     },
   };
@@ -59,6 +59,8 @@
       this.undoStack = [];
       this.redoStack = [];
       this.work = { kind: 'xy', h: 0 };
+      this.hud = { items: [] };   // 画布左上角浮动面板中的内容：{kind:'obj'|'ctl'|'pbtn'|'pprm', id}
+      this.controls = [];         // "控制"分区中的控件（不依赖题目）
       this.ev = {};
       this.dl = null;
     }
@@ -154,7 +156,7 @@
 
     autosave() {
       clearTimeout(this._asT);
-      this._asT = setTimeout(() => UI.LS.set('sg.autosave', { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON() }), 400);
+      this._asT = setTimeout(() => UI.LS.set('sg.autosave', { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON(), controls: this.controls, hud: this.hud }), 400);
     }
 
     // ------------------------------------------------------------ 选择
@@ -353,8 +355,7 @@
       scale = scale || 3;
       const dl = this.exportDL();
       const tmp = document.createElement('canvas');
-      // 先绘制一次以获得文字尺寸
-      const box = SG.Backend.contentBox(dl);
+      const box = SG.HUD ? SG.HUD.addToExport(this, dl, SG.Backend.contentBox(dl)) : SG.Backend.contentBox(dl);
       const m = 16;
       tmp.width = Math.ceil((box.w + 2 * m) * scale);
       tmp.height = Math.ceil((box.h + 2 * m) * scale);
@@ -370,7 +371,7 @@
     }
     exportSVG() {
       const dl = this.exportDL();
-      const box = SG.Backend.contentBox(dl);
+      const box = SG.HUD ? SG.HUD.addToExport(this, dl, SG.Backend.contentBox(dl)) : SG.Backend.contentBox(dl);
       const m = 16;
       const svg = SG.Backend.toSVG(dl, { x: box.x - m, y: box.y - m, w: box.w + 2 * m, h: box.h + 2 * m }, '#fff');
       UI.download('立体几何.svg', svg, 'image/svg+xml');
@@ -383,6 +384,26 @@
         } catch (e) { UI.toast('复制失败：浏览器不允许访问剪贴板，请改用导出 PNG', 'err'); }
       });
     }
+    // ------------------------------------------------------------ 左上角浮动面板
+    hudHas(kind, id) { return this.hud.items.some((x) => x.kind === kind && x.id === id); }
+    hudToggle(kind, id, on) {
+      const has = this.hudHas(kind, id);
+      if (on == null) on = !has;
+      if (on && !has) this.hud.items.push({ kind, id });
+      if (!on && has) this.hud.items = this.hud.items.filter((x) => !(x.kind === kind && x.id === id));
+      this.hud.open = true;
+      this.emit('hud');
+      this.autosave();
+    }
+    setControls(list) {
+      this.controls = list;
+      const ids = new Set(list.map((c) => c.id));
+      this.hud.items = this.hud.items.filter((x) => x.kind !== 'ctl' || ids.has(x.id));
+      this.emit('controls');
+      this.emit('hud');
+      this.autosave();
+    }
+
     /** 当前题目（从题目新建时生成）：题目信息、控制面板、示意图视角等 */
     setProblem(p, silent) {
       this.problem = p;
@@ -399,7 +420,7 @@
     }
 
     saveFile() {
-      const data = { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON() };
+      const data = { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON(), controls: this.controls, hud: this.hud };
       UI.download('立体几何.json', JSON.stringify(data, null, 1), 'application/json');
     }
     loadData(data, keepUndo) {
@@ -412,7 +433,11 @@
         this.S.recompute();
         if (data.cam) this.cam.load(data.cam);
         this.work = data.work || { kind: 'xy', h: 0 };
+        this.controls = Array.isArray(data.controls) ? data.controls : [];
+        this.hud = data.hud && Array.isArray(data.hud.items) ? data.hud : { items: [] };
         this.setProblem(data.problem || null, true);
+        this.emit('controls');
+        this.emit('hud');
         if (keepUndo !== false) this.pushUndo(snap);
         this.sel = [];
         this.afterChange();

@@ -633,7 +633,11 @@
       return this.S.add({ type: 'mark', def: { kind: 'angleArc', a, o, b, count: c.count || 1 }, name: null });
     }
     op_text(c) {
-      return this.S.add({ type: 'mark', def: { kind: 'text', at: c.at ? this.point(c.at) : null, pos: c.pos || [0, 0, 0], text: String(c.text || '') }, name: null });
+      const def = { kind: 'text', at: c.at ? this.point(c.at) : null, line: c.line && !c.at ? this.line(c.line) : null, pos: (c.pos || [0, 0, 0]).map(Number), text: String(c.text || '') };
+      const o = this.S.add({ type: 'mark', def, name: null });
+      if (c.color) o.style.color = c.color;
+      if (c.size) o.style.fontSize = +c.size;
+      return o;
     }
     op_trace(c) {
       const p = this.point(c.point);
