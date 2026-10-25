@@ -7,7 +7,7 @@
   'use strict';
 
   // 激活码（用"设置 → 高级调试 → 生成激活码"生成后粘贴到这里）
-  const CODE = '';
+  const CODE = 'v1.EosXUtF+DV33oXKGofZBt4u4pg8RDQPI1ntObL13DHAPxXEMY4CjTqG2BlgXVUk71dCXneS0PET11Tz3186mSeH+mGbdclKmCDGri+9U9A==';
 
   const ITER = 310000, DAYS = 7;
   const enc = new TextEncoder(), dec = new TextDecoder();
