@@ -1,0 +1,28 @@
+name: 检查签名设置
+
+# 手动运行：Actions → 检查签名设置 → Run workflow。只检查 Secrets 是否填对，不会显示其内容。
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查签名文件与密码
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ok=1
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "✗ 没有找到 $v（名称是否完全一致？）"; ok=0; else echo "✓ 已填写 $v"; fi
+          done
+          [ $ok = 1 ] || exit 1
+          echo "$KEYSTORE_BASE64" | base64 -d > ks.jks 2>/dev/null || { echo "✗ KEYSTORE_BASE64 不是完整的内容（是否少复制了一部分？）"; exit 1; }
+          keytool -list -keystore ks.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>&1 \
+            || { echo "✗ 签名文件打不开：KEYSTORE_PASSWORD 或 KEY_ALIAS 不对"; exit 1; }
+          [ "$KEY_PASSWORD" = "$KEYSTORE_PASSWORD" ] || { echo "✗ KEY_PASSWORD 应与 KEYSTORE_PASSWORD 相同"; exit 1; }
+          rm -f ks.jks
+          echo "✓ 全部正确，可以用来给 APK 签名"
