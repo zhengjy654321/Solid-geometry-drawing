@@ -372,14 +372,24 @@
 
     manual() {
       const ta = h('textarea', { rows: 12, style: { width: '100%', fontFamily: 'monospace', fontSize: '12px' }, placeholder: '[{"op":"midpoint","name":"M","a":"A","b":"B"}, {"op":"segment","a":"M","b":"C"}]' });
-      const body = h('div', null, h('div', { class: 'note' }, '可以粘贴 AI 输出的 JSON（整个对象或 commands 数组）。指令格式见 docs/commands.md。'), ta);
+      const copy = h('button', { class: 'btn', onclick: () => { navigator.clipboard.writeText('【当前图形】\n```json\n' + JSON.stringify(SG.AIPrompt.describeScene(this.app)) + '\n```').then(() => UI.toast('已复制当前图形，可粘贴给 AI', 'ok'), () => UI.toast('复制失败', 'err')); } }, '复制当前图形');
+      const body = h('div', null, h('div', { class: 'note' }, '可以粘贴 AI 输出的 JSON（整个对象或 commands 数组）。指令格式见“?”中下载的说明文件。'), h('div', { class: 'btnrow' }, copy), ta);
       UI.modal('执行作图指令', body, [{ label: '取消', value: null }, {
         label: '执行', primary: true, onClick: () => {
           try {
-            let d = JSON.parse(ta.value);
-            if (!Array.isArray(d)) d = d.commands || [d];
-            SG.AIPrompt.execute(this.app, d);
-            UI.toast('已执行 ' + d.length + ' 条指令', 'ok');
+            const raw = ta.value.trim();
+            let d = raw.startsWith('[') ? JSON.parse(raw) : SG.AIPrompt.parseReply(raw);
+            const ctls = Array.isArray(d) ? [] : d.controls || [];
+            if (!Array.isArray(d)) d = d.commands || (d.op ? [d] : []);
+            if (d.length) SG.AIPrompt.execute(this.app, d);
+            const list = SG.Controls.normalizeAI(ctls);
+            if (list.length) {
+              const pins = list.filter((x) => x.pin).map((x) => x.id);
+              for (const x of list) delete x.pin;
+              this.app.setControls(this.app.controls.concat(list));
+              for (const id of pins) this.app.hudToggle('ctl', id, true);
+            }
+            UI.toast('已执行 ' + d.length + ' 条指令' + (list.length ? '，添加 ' + list.length + ' 个控件' : ''), 'ok');
             return true;
           } catch (e) { UI.toast(e.message, 'err', 6000); return false; }
         },

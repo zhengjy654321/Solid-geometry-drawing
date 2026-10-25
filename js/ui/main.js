@@ -288,7 +288,17 @@
       <p>在"设置"中填好 API Key（默认 DeepSeek），在右侧"AI 助手"中选择模式：<b>作图</b>——用文字描述作图要求，例如"过 BD 作与底面成 60° 的平面""做一个滑动条控制 E 的位置"，AI 返回的作图指令会被直接画出（控件放到"控制"标签页），不满意可撤销；<b>对话</b>——和 AI 讨论题目，AI 能看到当前图形但不会作图。勾选"附带当前题目"会把题目信息一并发送。"新对话"开始新的对话，"记录"中可以切换、删除以前的对话。</p>
       <h4>快捷键</h4>
       <p><kbd>V</kbd> 选择　<kbd>P</kbd> 点　<kbd>S</kbd> 线段　<kbd>G</kbd> 多边形　<kbd>M</kbd> 中点　<kbd>T</kbd> 文字　<kbd>F</kbd> 适应窗口　<kbd>L</kbd> 标签　<kbd>Enter</kbd> 完成多边形　<kbd>Esc</kbd> 取消</p>` });
-    UI.modal('使用说明', body, [{ label: '知道了', primary: true, value: null }]);
+    UI.modal('使用说明', body, [{ label: '下载 AI 指令说明（.md）', onClick: () => { downloadGuide(); return false; } }, { label: '知道了', primary: true, value: null }]);
+  }
+  /** 给不用 API 的人：把作图指令说明下载为 md，发给任意网页版 AI，再把回复粘贴到"AI 助手 → 指令"中执行 */
+  function downloadGuide() {
+    const P = SG.AIPrompt;
+    const head = '# 立体几何绘图器 · AI 作图指令说明\n\n' +
+      '> 用法（不需要 API Key）：\n' +
+      '> 1. 把本文件发给任意 AI（如网页版 DeepSeek、豆包、ChatGPT），再写上你的作图要求；如果图中已有图形，最好在绘图器的“AI 助手 → 指令”窗口中点“复制当前图形”，一并粘贴给 AI。\n' +
+      '> 2. 把 AI 回复的 JSON（整段，或其中的 commands 数组）粘贴到“AI 助手 → 指令”窗口，点“执行”即可画出来；回复中的 controls（控件）会添加到“控制”标签页。\n\n';
+    const conv = (t) => t.replace(/^# /gm, '## ');
+    UI.download('立体几何绘图器-AI指令说明.md', head + conv(P.SYSTEM_PROMPT) + '\n' + conv(P.CONTROLS_PROMPT).trim() + '\n', 'text/markdown');
   }
 
   // ------------------------------------------------------------ 启动
