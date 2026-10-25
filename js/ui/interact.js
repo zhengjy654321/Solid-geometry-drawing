@@ -73,7 +73,7 @@
       let best = 10;
       for (const p of dl.hits.points) {
         const d = Math.hypot(p.x - x, p.y - y);
-        if (d < best) { best = d; out.point = p.id; }
+        if (d < best) { best = d; out.point = p.id; out.pointDist = d; }
       }
       for (const lb of dl.hits.labels || []) {
         if (x >= lb.x && x <= lb.x + lb.w && y >= lb.y && y <= lb.y + lb.h) { out.label = lb.id; out.labelIsText = !!lb.label; }
@@ -663,9 +663,11 @@
         }
         if (this.toolId === 'select') {
           const hh = this.hitAll(x, y);
-          if (hh.label && !hh.point) {
+          // 点在文字框内时优先选文字（除非正好点在某个点上）
+          if (hh.label && (!hh.point || hh.pointDist > 5)) {
             const o = this.S.map.get(hh.label);
-            if (o) { this.drag = { kind: 'label', id: o.id, x, y, snap: this.app.snapshot() }; return; }
+            const lb = o && (this.app.dl.labels || []).find((it) => it.id === o.id && it.k === 'text');
+            if (o) { this.drag = { kind: 'label', id: o.id, x, y, lx: lb ? lb.x : null, ly: lb ? lb.y : null, touch: e.pointerType === 'touch', snap: this.app.snapshot() }; return; }
           }
           const o = hh.point && this.S.map.get(hh.point);
           if (o && this.canDrag(o)) { this.startDrag(o, x, y); this.drag.pending = true; return; }
@@ -716,11 +718,14 @@
         } else if (d.kind === 'point') {
           this.dragTo(x, y, e);
         } else if (d.kind === 'label') {
+          // 移动超过一定距离才算拖动文字，否则松开时当作单击（弹出菜单）
+          if (!d.moved && Math.hypot(x - d.x, y - d.y) < (d.touch ? 10 : 5)) return;
           const o = this.S.map.get(d.id);
           const anchor = o.type === 'measure' ? o.v.at : o.type === 'mark' ? o.v && o.v.p : o.v;
-          if (anchor && Array.isArray(anchor)) {
+          if (anchor && Array.isArray(anchor) && d.lx != null) {
+            // 文字随手指 / 鼠标平移，不会跳到光标处
             const p = this.cam.project(anchor);
-            o.style.labelOffset = [x - p[0], y - p[1]];
+            o.style.labelOffset = [d.lx + x - d.x - p[0], d.ly + y - d.y - p[1]];
             d.moved = true;
             this.app.render();
           }

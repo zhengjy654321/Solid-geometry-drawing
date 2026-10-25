@@ -83,7 +83,7 @@
           this.app.saveSettings();
         },
       });
-      this.effLbl = h('span', { class: 'model' });
+      this.effSel = SG.ModelUI.effortSelect(cfg.effort, (v) => { this.cfg.effort = v; this.app.saveSettings(); });
       this.btnList = h('button', { class: 'btn', title: '对话记录', onclick: () => this.toggleList() }, '记录');
       this.btnCmd = h('button', { class: 'btn', title: '手动输入 / 粘贴作图指令', onclick: () => this.manual() }, '指令');
       p.appendChild(h('div', { class: 'ai-head' },
@@ -91,7 +91,7 @@
         h('span', { style: { flex: 1 } }),
         h('button', { class: 'btn', title: '开启新对话（当前对话会保存在记录中）', onclick: () => this.newChat() }, '新对话'),
         this.btnList, this.btnCmd,
-        h('div', { class: 'ai-model' }, h('span', null, '模型'), this.modelSel.el, this.effLbl)));
+        h('div', { class: 'ai-model' }, h('span', null, '模型'), this.modelSel.el, this.effSel)));
       this.log = h('div', { class: 'ai-log' });
       this.list = h('div', { class: 'ai-list', style: { display: 'none' } });
       p.appendChild(this.log);
@@ -143,8 +143,9 @@
       const cfg = this.cfg;
       this.modelSel.set(cfg.think ? cfg.modelThink : cfg.modelFast);
       for (const b of this.swThink.children) b.classList.toggle('on', b.dataset.v === (cfg.think ? '1' : '0'));
-      const eff = { low: '低', high: '高', max: '最高' }[cfg.effort] || '高';
-      this.effLbl.textContent = cfg.think && cfg.provider === 'deepseek' ? '思考强度：' + eff : '';
+      this.effSel.value = cfg.effort || 'high';
+      this.effSel.disabled = !cfg.think;
+      this.effSel.title = cfg.think ? '思考强度：越高想得越久、越仔细，也更慢、更贵' : '开启思考后才能选择思考强度';
     }
 
     add(cls, ...kids) {
@@ -402,8 +403,7 @@
     const hist = h('input', { type: 'number', value: ai.history, min: 0, max: 20 });
     const effort = h('select', null, [['low', '低（更快、更省）'], ['high', '高（默认）'], ['max', '最高（更复杂的题）']].map(([v, l]) => h('option', { value: v, selected: (ai.effort || 'high') === v }, l)));
     const effRow = h('div', { class: 'field' }, h('label', null, '思考强度'), effort);
-    const syncEff = () => { effRow.style.display = prov.value === 'deepseek' ? '' : 'none'; };
-    syncEff();
+    const syncEff = () => {};
     prov.addEventListener('change', () => {
       const p = SG.PROVIDERS[prov.value];
       if (p.baseUrl) base.value = p.baseUrl;

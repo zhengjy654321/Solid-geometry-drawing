@@ -115,6 +115,19 @@ const assert = require('assert');
   assert.strictEqual(r.model, 'deepseek-v4-pro');
   assert.strictEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sg.settings')).ai.modelFast), 'deepseek-v4-pro');
 
+  // 5b. 思考强度：关闭思考时不可选；开启后可选，并随请求发送
+  assert.ok(await page.isDisabled('#pane-ai .ai-model .effort-sel'));
+  await page.click('#pane-ai .sw button:has-text("开启思考")');
+  assert.ok(!(await page.isDisabled('#pane-ai .ai-model .effort-sel')));
+  await page.selectOption('#pane-ai .ai-model .effort-sel', 'max');
+  await reply('嗯。');
+  await send('想仔细点');
+  r = await lastReq();
+  assert.deepStrictEqual(r.thinking, { type: 'enabled' });
+  assert.strictEqual(r.reasoning_effort, 'max');
+  assert.strictEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sg.settings')).ai.effort), 'max');
+  await page.click('#pane-ai .sw button:has-text("关闭思考")');
+
   // 6. 新对话：记录清空，请求中不再带之前的消息
   await page.click('#pane-ai button:has-text("新对话")');
   log = await page.evaluate(() => document.querySelector('.ai-log').innerText);

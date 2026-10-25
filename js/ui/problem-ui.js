@@ -37,8 +37,8 @@
     const ds = app.settings.ai.provider === 'deepseek';
     const model = SG.ModelUI.select(d.model, { provider: () => app.settings.ai.provider, known: () => SG.ModelUI.known(app), flashOnly: flashOnly && ds });
     const think = h('select', null, h('option', { value: '0', selected: !d.think }, '关闭思考'), h('option', { value: '1', selected: !!d.think }, '开启思考'));
-    const effort = h('select', null, [['low', '思考强度：低'], ['high', '思考强度：高'], ['max', '思考强度：最高']].map(([v, l]) => h('option', { value: v, selected: d.effort === v }, l)));
-    const sync = () => { effort.style.display = ds && think.value === '1' ? '' : 'none'; };
+    const effort = SG.ModelUI.effortSelect(d.effort);
+    const sync = () => { effort.disabled = think.value !== '1'; effort.title = effort.disabled ? '开启思考后才能选择思考强度' : '思考强度：越高想得越久、越仔细，也更慢、更贵'; };
     think.addEventListener('change', sync);
     sync();
     const el = h('div', { class: 'pb-model-row' }, h('span', { class: 'pb-lbl' }, title), model.el, think, effort);

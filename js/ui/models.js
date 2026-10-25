@@ -50,6 +50,15 @@
     };
   }
 
+  const EFFORTS = [['low', '低'], ['high', '高'], ['max', '最高']];
+  /** 思考强度下拉：返回 select 元素（value 为 low / high / max） */
+  function effortSelect(value, onChange, prefix) {
+    const sel = h('select', { class: 'effort-sel', title: '思考强度：越高想得越久、越仔细，也更慢、更贵' },
+      EFFORTS.map(([v, l]) => h('option', { value: v, selected: (value || 'high') === v }, (prefix == null ? '思考强度：' : prefix) + l)));
+    if (onChange) sel.addEventListener('change', () => onChange(sel.value));
+    return sel;
+  }
+
   /** 设置中的已知模型 */
   function known(app) {
     const ai = app.settings.ai;
@@ -57,5 +66,5 @@
     return [ai.modelFast, ai.modelThink, p.rec && p.rec.model, p.gen && p.gen.model, p.check && p.check.model];
   }
 
-  SG.ModelUI = { select, known, DS };
+  SG.ModelUI = { select, known, effortSelect, DS };
 })(globalThis.SG = globalThis.SG || {});

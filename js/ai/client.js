@@ -30,6 +30,8 @@
       body.thinking = { type: opts.think ? 'enabled' : 'disabled' };
       if (opts.think) body.reasoning_effort = ['low', 'high', 'max'].includes(opts.effort) ? opts.effort : 'high';
     }
+    // OpenAI 推理模型的 reasoning_effort 只有 low / medium / high
+    else if (opts.provider === 'openai' && opts.think) body.reasoning_effort = opts.effort === 'low' ? 'low' : opts.effort === 'max' ? 'high' : 'medium';
     let res;
     try {
       res = await fetch(endpoint(opts.baseUrl), {
