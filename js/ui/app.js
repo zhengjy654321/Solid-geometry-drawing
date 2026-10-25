@@ -15,6 +15,8 @@
       think: false,
       effort: 'high',
       history: 6,
+      mode: 'draw', // draw 作图 / chat 对话
+      attachProblem: true,
     },
     view: {
       fontSize: 17, lineScale: 1, hiddenMode: 'dashed', gridStep: 1, gridExtent: 5,

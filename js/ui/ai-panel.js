@@ -1,68 +1,150 @@
 /*
- * AI 助手面板 + 设置对话框。
+ * AI 助手面板（作图 / 对话模式、对话记录）+ 设置对话框。
  */
 (function (SG) {
   'use strict';
   const { UI } = SG;
   const { h } = UI;
 
-  const TIPS = [
-    '取 PC 的中点 E，连接 BE、DE',
-    '作出二面角 P-BC-A 的平面角',
-    '过 AB 作一个与底面成 45° 的平面',
-    '作出过 E、F、G 三点的截面',
-  ];
+  const TIPS = {
+    draw: [
+      '取 PC 的中点 E，连接 BE、DE',
+      '作出二面角 P-BC-A 的平面角',
+      '作出过 E、F、G 三点的截面',
+      '做一个滑动条，控制 E 在 PC 上的位置',
+    ],
+    chat: [
+      '这道题的思路是什么？',
+      '当前图中 AC1 与平面 A1BD 有什么关系？',
+      '二面角的平面角一般怎么找？',
+      '帮我检查一下这个截面画得对不对',
+    ],
+  };
+  const MAX_CHATS = 40;
+  let seq = 0;
+  const newId = () => 'chat' + Date.now().toString(36) + (seq++);
 
+  /**
+   * AI 助手面板。
+   * 作图模式：AI 输出作图指令（以及可选的控件），程序执行；对话模式：只交流，AI 能看到当前图形，但不作图。
+   * 对话记录保存在本机浏览器（localStorage 的 sg.chats）。
+   */
   class AIPanel {
     constructor(app) {
       this.app = app;
       this.pane = document.getElementById('pane-ai');
-      this.history = []; // {role, content}
       this.busy = null;
+      this.showList = false;
+      const st = UI.LS.get('sg.chats', null) || {};
+      this.chats = Array.isArray(st.list) ? st.list : [];
+      this.curId = st.cur && this.chats.some((c) => c.id === st.cur) ? st.cur : null;
       this.build();
+      app.on('problem', () => this.syncProblem());
     }
     get cfg() { return this.app.settings.ai; }
+    get chat() { return this.chats.find((c) => c.id === this.curId) || null; }
+    get mode() { return this.cfg.mode === 'chat' ? 'chat' : 'draw'; }
 
+    saveChats() {
+      // 只保留最近的记录，避免超出浏览器存储上限
+      this.chats.sort((a, b) => b.time - a.time);
+      this.chats = this.chats.slice(0, MAX_CHATS);
+      for (const c of this.chats) { c.items = c.items.slice(-200); c.hist = c.hist.slice(-60); }
+      UI.LS.set('sg.chats', { cur: this.curId, list: this.chats });
+    }
+    ensureChat() {
+      let c = this.chat;
+      if (!c) {
+        c = { id: newId(), title: '', time: Date.now(), items: [], hist: [] };
+        this.chats.unshift(c);
+        this.curId = c.id;
+      }
+      return c;
+    }
+
+    // ---------------------------------------------------------- 界面
     build() {
       const p = this.pane;
       p.innerHTML = '';
       const cfg = this.cfg;
-      this.swThink = h('button', { class: cfg.think ? 'on' : '', onclick: () => this.setThink(true) }, '开启思考');
-      this.swFast = h('button', { class: cfg.think ? '' : 'on', onclick: () => this.setThink(false) }, '关闭思考');
-      this.modelLbl = h('span', { class: 'model' });
+      const seg = (opts, cur, onPick) => {
+        const btns = opts.map(([v, l, tip]) => { const b = h('button', { class: v === cur ? 'on' : '', title: tip || '', onclick: () => { for (const x of btns) x.classList.toggle('on', x === b); onPick(v); } }, l); b.dataset.v = v; return b; });
+        return h('div', { class: 'sw' }, btns);
+      };
+      this.swMode = seg([['draw', '作图', 'AI 根据你的要求在图中作图'], ['chat', '对话', '只和 AI 交流，AI 能看到当前图形，但不会作图']], this.mode, (v) => this.setMode(v));
+      this.swThink = seg([['0', '关闭思考'], ['1', '开启思考']], cfg.think ? '1' : '0', (v) => this.setThink(v === '1'));
+      this.modelSel = SG.ModelUI.select(cfg.think ? cfg.modelThink : cfg.modelFast, {
+        provider: () => this.cfg.provider,
+        known: () => SG.ModelUI.known(this.app),
+        onChange: () => {
+          const m = this.modelSel.get();
+          if (!m) return;
+          if (this.cfg.think) this.cfg.modelThink = m; else this.cfg.modelFast = m;
+          this.app.saveSettings();
+        },
+      });
+      this.effLbl = h('span', { class: 'model' });
+      this.btnList = h('button', { class: 'btn', title: '对话记录', onclick: () => this.toggleList() }, '记录');
+      this.btnCmd = h('button', { class: 'btn', title: '手动输入 / 粘贴作图指令', onclick: () => this.manual() }, '指令');
       p.appendChild(h('div', { class: 'ai-head' },
-        h('div', { class: 'sw' }, this.swFast, this.swThink),
-        this.modelLbl,
+        this.swMode, this.swThink,
         h('span', { style: { flex: 1 } }),
-        h('button', { class: 'btn', title: '手动输入 / 粘贴作图指令', onclick: () => this.manual() }, '指令'),
-        h('button', { class: 'btn', onclick: () => { this.history = []; this.log.innerHTML = ''; this.welcome(); } }, '清空')));
+        h('button', { class: 'btn', title: '开启新对话（当前对话会保存在记录中）', onclick: () => this.newChat() }, '新对话'),
+        this.btnList, this.btnCmd,
+        h('div', { class: 'ai-model' }, h('span', null, '模型'), this.modelSel.el, this.effLbl)));
       this.log = h('div', { class: 'ai-log' });
+      this.list = h('div', { class: 'ai-list', style: { display: 'none' } });
       p.appendChild(this.log);
-      p.appendChild(h('div', { class: 'ai-tips' }, TIPS.map((t) => h('button', { onclick: () => { this.input.value = t; this.input.focus(); } }, t))));
-      this.input = h('textarea', { placeholder: '描述你想作的辅助线 / 辅助面 / 截面……\n例如：过 BD 作与底面 ABCD 成 60° 的平面（Ctrl+Enter 发送）' });
+      p.appendChild(this.list);
+      this.tips = h('div', { class: 'ai-tips' });
+      p.appendChild(this.tips);
+      this.input = h('textarea');
       this.input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.send(); } });
       this.sendBtn = h('button', { class: 'btn primary', onclick: () => this.send() }, '发送');
-      p.appendChild(h('div', { class: 'ai-input' }, this.input, h('div', { class: 'row' },
-        h('span', { class: 'grow' }, '会自动把当前图形（以及选中的对象）一并发送给 AI'), this.sendBtn)));
+      this.chkProblem = h('input', { type: 'checkbox', checked: cfg.attachProblem !== false });
+      this.chkProblem.addEventListener('change', () => { this.cfg.attachProblem = this.chkProblem.checked; this.app.saveSettings(); });
+      this.problemLbl = h('label', { class: 'ai-chk', title: '把当前题目（题目信息与控制面板）一并发送给 AI' }, this.chkProblem, h('span', null, '附带当前题目'));
+      this.hint = h('span', { class: 'grow' });
+      p.appendChild(h('div', { class: 'ai-input' }, this.input, h('div', { class: 'row' }, this.problemLbl, this.hint, this.sendBtn)));
       this.updateModel();
-      this.welcome();
+      this.syncMode();
+      this.syncProblem();
+      this.renderLog();
     }
-    welcome() {
-      if (!this.cfg.apiKey) {
-        this.sys(h('div', null, '使用 AI 辅助作图前，请先在 ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); openSettings(this.app, 'ai'); } }, '设置'), ' 中填写 API Key（默认使用 DeepSeek 接口）。API Key 只保存在你自己的浏览器里。'));
-      } else this.sys('描述你需要的辅助作图，AI 会根据当前图形生成作图指令并自动画出来。不满意可以按 Ctrl+Z 撤销。');
+    syncMode() {
+      const chat = this.mode === 'chat';
+      this.input.placeholder = chat
+        ? '和 AI 讨论这道题或当前图形……\n例如：为什么 AC1 ⊥ 平面 A1BD？（Ctrl+Enter 发送）'
+        : '描述你想作的辅助线 / 辅助面 / 截面 / 控件……\n例如：过 BD 作与底面 ABCD 成 60° 的平面（Ctrl+Enter 发送）';
+      this.hint.textContent = chat ? '对话模式：AI 能看到当前图形，但不会作图' : '会把当前图形（以及选中的对象）一并发送给 AI';
+      this.btnCmd.style.display = chat ? 'none' : '';
+      this.pane.classList.toggle('chat-mode', chat);
+      this.tips.innerHTML = '';
+      for (const t of TIPS[this.mode]) this.tips.appendChild(h('button', { onclick: () => { this.input.value = t; this.input.focus(); } }, t));
+    }
+    syncProblem() {
+      const has = !!(this.app.problem && this.app.problem.info);
+      this.chkProblem.disabled = !has;
+      this.problemLbl.classList.toggle('off', !has);
+      this.problemLbl.title = has ? '把当前题目（题目信息与控制面板）一并发送给 AI' : '当前没有题目（可在"新建 → 从题目新建"中创建）';
+    }
+    setMode(v) {
+      this.cfg.mode = v;
+      this.app.saveSettings();
+      this.syncMode();
     }
     setThink(v) {
       this.cfg.think = v;
       this.app.saveSettings();
-      this.swThink.classList.toggle('on', v);
-      this.swFast.classList.toggle('on', !v);
       this.updateModel();
     }
+    /** 设置变化后刷新模型选择 */
     updateModel() {
-      const m = this.cfg.think ? this.cfg.modelThink : this.cfg.modelFast;
-      const eff = { low: '低', high: '高', max: '最高' }[this.cfg.effort] || '高';
-      this.modelLbl.textContent = '模型：' + (m || '未设置') + (this.cfg.think && this.cfg.provider === 'deepseek' ? '（思考强度：' + eff + '）' : '');
+      const cfg = this.cfg;
+      this.modelSel.set(cfg.think ? cfg.modelThink : cfg.modelFast);
+      for (const b of this.swThink.children) b.classList.toggle('on', b.dataset.v === (cfg.think ? '1' : '0'));
+      const eff = { low: '低', high: '高', max: '最高' }[cfg.effort] || '高';
+      this.effLbl.textContent = cfg.think && cfg.provider === 'deepseek' ? '思考强度：' + eff : '';
     }
 
     add(cls, ...kids) {
@@ -72,35 +154,161 @@
       return el;
     }
     sys(content) { return this.add('sys', content); }
+    welcome() {
+      if (!this.cfg.apiKey) {
+        this.sys(h('div', null, '使用 AI 助手前，请先在 ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); openSettings(this.app, 'ai'); } }, '设置'), ' 中填写 API Key（默认使用 DeepSeek 接口）。API Key 只保存在你自己的浏览器里。'));
+      } else {
+        this.sys('作图模式：描述你需要的辅助作图或控件，AI 会生成指令并自动画出来（Ctrl+Z 可撤销）。\n对话模式：和 AI 讨论题目，AI 能看到当前图形，但不会作图。');
+      }
+    }
 
-    async send(text, isFix) {
+    /** 重新显示当前对话 */
+    renderLog() {
+      this.log.innerHTML = '';
+      const c = this.chat;
+      if (!c || !c.items.length) { this.welcome(); return; }
+      for (const it of c.items) {
+        if (it.k === 'user') this.add('user', it.text);
+        else if (it.k === 'ai') { const body = h('div'); this.add('ai', body); this.renderAI(it, body); }
+        else this.sys(it.text);
+      }
+    }
+    /** AI 回复的显示（实时与重新打开记录时共用）；fix 为"让 AI 修正"的回调（仅实时） */
+    renderAI(it, body, fix) {
+      body.innerHTML = '';
+      if (it.think) body.appendChild(h('details', null, h('summary', null, '思考过程'), h('div', { class: 'think' }, it.think)));
+      if (it.mode === 'chat') { body.appendChild(h('div', { class: 'chat-text' }, it.text || '')); return; }
+      if (it.parseErr) {
+        body.appendChild(h('div', { class: 'res-err' }, '无法解析 AI 的回复：' + it.parseErr));
+        body.appendChild(h('details', null, h('summary', null, '原始回复'), h('pre', null, it.raw || '')));
+        if (fix) body.appendChild(h('div', { class: 'btnrow' }, h('button', { onclick: () => fix('你上一次的回复不是合法的 JSON（' + it.parseErr + '），请严格按照要求的 JSON 格式重新输出。') }, '让 AI 重新输出')));
+        return;
+      }
+      if (it.text) body.appendChild(h('div', null, it.text));
+      if (it.thought) body.appendChild(h('details', null, h('summary', null, '作图思路'), h('div', null, it.thought)));
+      const cmds = it.cmds || [];
+      if (cmds.length) body.appendChild(h('details', null, h('summary', null, '作图指令（' + cmds.length + ' 条）'), h('pre', null, JSON.stringify(cmds, null, 1))));
+      if (it.ctls && it.ctls.length) body.appendChild(h('details', null, h('summary', null, '控件（' + it.ctls.length + ' 个）'), h('pre', null, JSON.stringify(it.ctls, null, 1))));
+      if (it.ok) body.appendChild(h('div', { class: 'res-ok' }, it.ok));
+      if (it.ctlOk) {
+        body.appendChild(h('div', { class: 'res-ok' }, it.ctlOk, ' ',
+          h('a', { href: '#', onclick: (e) => { e.preventDefault(); this.app.emit('openTab', 'controls'); } }, '查看')));
+      }
+      if (it.err) {
+        body.appendChild(h('div', { class: 'res-err' }, '✗ ' + it.err + '（已全部回滚）'));
+        if (fix) body.appendChild(h('div', { class: 'btnrow' }, h('button', { class: 'primary', onclick: () => fix('你给出的指令执行出错：' + it.err + '\n请修正后重新给出完整的指令列表（当前图形见上方，之前的指令都没有执行）。') }, '把错误发给 AI 修正')));
+      }
+    }
+
+    // ---------------------------------------------------------- 对话记录
+    newChat() {
+      if (this.busy) this.busy.abort();
+      const c = this.chat;
+      if (c && !c.items.length) this.chats = this.chats.filter((x) => x !== c);
+      this.curId = null;
+      this.saveChats();
+      this.closeList();
+      this.renderLog();
+      this.input.focus();
+    }
+    openChat(id) {
+      if (this.busy) this.busy.abort();
+      this.curId = id;
+      this.saveChats();
+      this.closeList();
+      this.renderLog();
+    }
+    deleteChat(id) {
+      this.chats = this.chats.filter((c) => c.id !== id);
+      if (this.curId === id) { if (this.busy) this.busy.abort(); this.curId = null; this.renderLog(); }
+      this.saveChats();
+      this.renderList();
+    }
+    async clearChats() {
+      const ok = await UI.modal('清空对话记录', h('div', null, '确定删除全部 ' + this.chats.length + ' 条对话记录吗？此操作不能撤销。'), [{ label: '取消', value: false }, { label: '全部删除', primary: true, value: true }]);
+      if (!ok) return;
+      if (this.busy) this.busy.abort();
+      this.chats = [];
+      this.curId = null;
+      this.saveChats();
+      this.renderList();
+      this.renderLog();
+    }
+    toggleList() { if (this.showList) this.closeList(); else this.openList(); }
+    openList() {
+      this.showList = true;
+      this.btnList.classList.add('on');
+      this.log.style.display = 'none';
+      this.list.style.display = '';
+      this.renderList();
+    }
+    closeList() {
+      this.showList = false;
+      this.btnList.classList.remove('on');
+      this.log.style.display = '';
+      this.list.style.display = 'none';
+    }
+    renderList() {
+      const L = this.list;
+      L.innerHTML = '';
+      const list = this.chats.filter((c) => c.items.length).sort((a, b) => b.time - a.time);
+      L.appendChild(h('div', { class: 'ai-list-head' }, h('b', null, '对话记录（' + list.length + '）'), h('span', { style: { flex: 1 } }),
+        list.length ? h('button', { class: 'btn danger', onclick: () => this.clearChats() }, '清空全部') : null,
+        h('button', { class: 'btn', onclick: () => this.closeList() }, '返回')));
+      if (!list.length) { L.appendChild(h('div', { class: 'empty' }, '还没有对话记录')); return; }
+      const fmt = (t) => { const d = new Date(t), p = (n) => String(n).padStart(2, '0'); return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+      for (const c of list) {
+        const n = c.items.filter((x) => x.k === 'user').length;
+        L.appendChild(h('div', { class: 'ai-chat' + (c.id === this.curId ? ' cur' : ''), onclick: () => this.openChat(c.id) },
+          h('div', { class: 'ai-chat-t' }, c.title || '（无标题）'),
+          h('div', { class: 'ai-chat-m' }, fmt(c.time) + ' · ' + n + ' 条提问'),
+          h('button', { class: 'ai-chat-x', title: '删除这条记录', onclick: (e) => { e.stopPropagation(); this.deleteChat(c.id); } }, '✕')));
+      }
+    }
+
+    // ---------------------------------------------------------- 发送
+    async send(text, fixOf) {
       text = (text || this.input.value).trim();
       if (!text) return;
       if (this.busy) { this.busy.abort(); return; }
-      const cfg = this.cfg;
-      if (!cfg.apiKey) { this.welcome(); openSettings(this.app, 'ai'); return; }
-      const model = cfg.think ? cfg.modelThink : cfg.modelFast;
-      if (!model) { UI.toast('请先在设置中填写模型名称', 'err'); return; }
-      if (!isFix) { this.input.value = ''; this.add('user', text); }
-      const userMsg = SG.AIPrompt.buildUserMessage(this.app, text);
+      const cfg = this.cfg, app = this.app;
+      if (!cfg.apiKey) { this.welcome(); openSettings(app, 'ai'); return; }
+      const model = this.modelSel.get() || (cfg.think ? cfg.modelThink : cfg.modelFast);
+      if (!model) { UI.toast('请先选择模型', 'err'); return; }
+      if (this.showList) this.closeList();
+      const mode = this.mode;
+      const c = this.ensureChat();
+      if (!c.items.length) this.log.innerHTML = '';
+      if (!fixOf) {
+        this.input.value = '';
+        this.add('user', text);
+        c.items.push({ k: 'user', text });
+        if (!c.title) c.title = text.replace(/\s+/g, ' ').slice(0, 30);
+      }
+      const request = fixOf ? text + '\n原始要求：' + fixOf : text;
+      const withProblem = this.chkProblem.checked && !!(app.problem && app.problem.info);
+      const userMsg = SG.AIPrompt.buildUserMessage(app, request, { problem: withProblem, chat: mode === 'chat' });
       const keep = Math.max(0, (cfg.history || 6) * 2);
-      const messages = [{ role: 'system', content: SG.AIPrompt.SYSTEM_PROMPT }].concat(this.history.slice(-keep), [{ role: 'user', content: userMsg }]);
+      const system = mode === 'chat' ? SG.AIPrompt.CHAT_PROMPT : SG.AIPrompt.SYSTEM_PROMPT + SG.AIPrompt.CONTROLS_PROMPT;
+      const messages = [{ role: 'system', content: system }].concat(c.hist.slice(-keep), [{ role: 'user', content: userMsg }]);
       const think = h('div', { class: 'think' });
       const det = h('details', { open: true }, h('summary', null, '思考过程'), think);
       const body = h('div', null, '…');
-      const msg = this.add('ai', det, body);
+      this.add('ai', det, body);
       det.style.display = 'none';
       const ctrl = new AbortController();
       this.busy = ctrl;
       this.sendBtn.textContent = '停止';
       const t0 = Date.now();
+      const chatId = c.id;
       let res;
       try {
         res = await SG.AIClient.chat({
           baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model, provider: cfg.provider, think: cfg.think, effort: cfg.effort, messages, signal: ctrl.signal,
           onDelta: ({ content, reasoning }) => {
             if (reasoning) { det.style.display = ''; think.textContent = reasoning; think.scrollTop = think.scrollHeight; }
-            body.textContent = content ? '正在生成作图指令…（' + content.length + ' 字）' : '思考中…（' + Math.round((Date.now() - t0) / 1000) + ' 秒）';
+            if (mode === 'chat' && content) body.textContent = content;
+            else body.textContent = content ? '正在生成作图指令…（' + content.length + ' 字）' : '思考中…（' + Math.round((Date.now() - t0) / 1000) + ' 秒）';
             this.log.scrollTop = this.log.scrollHeight;
           },
         });
@@ -114,39 +322,51 @@
       }
       this.busy = null;
       this.sendBtn.textContent = '发送';
-      det.open = false;
-      this.history.push({ role: 'user', content: isFix ? text : '（当时的图形已省略）\n' + text }, { role: 'assistant', content: res.content });
-      this.handleReply(res.content, body, text);
-      void msg;
+      if (this.curId !== chatId) return; // 已切换到别的对话
+      det.remove();
+      const ctx = withProblem ? '（当时的题目与图形已省略）\n' : '（当时的图形已省略）\n';
+      c.hist.push({ role: 'user', content: ctx + request }, { role: 'assistant', content: res.content });
+      c.time = Date.now();
+      const it = mode === 'chat'
+        ? { k: 'ai', mode: 'chat', text: res.content, think: res.reasoning || '' }
+        : this.handleReply(res.content, res.reasoning);
+      c.items.push(it);
+      this.saveChats();
+      const base = fixOf || text;
+      this.renderAI(it, body, (msg) => this.send(msg, base));
+      this.log.scrollTop = this.log.scrollHeight;
     }
 
-    handleReply(content, body, request) {
-      body.innerHTML = '';
+    /** 作图模式：解析并执行 AI 的回复，返回要保存的记录 */
+    handleReply(content, reasoning) {
+      const app = this.app;
+      const it = { k: 'ai', mode: 'draw', think: reasoning || '' };
       let data;
       try { data = SG.AIPrompt.parseReply(content); }
-      catch (e) {
-        body.appendChild(h('div', { class: 'res-err' }, '无法解析 AI 的回复：' + e.message));
-        body.appendChild(h('details', null, h('summary', null, '原始回复'), h('pre', null, content)));
-        body.appendChild(h('div', { class: 'btnrow' }, h('button', { onclick: () => this.send('你上一次的回复不是合法的 JSON（' + e.message + '），请严格按照要求的 JSON 格式重新输出。原始要求：' + request, true) }, '让 AI 重新输出')));
-        return;
+      catch (e) { it.parseErr = e.message; it.raw = content; return it; }
+      it.text = data.message || '';
+      it.thought = data.thought || '';
+      const cmds = (it.cmds = Array.isArray(data.commands) ? data.commands : []);
+      const ctls = (it.ctls = Array.isArray(data.controls) ? data.controls : []);
+      if (cmds.length) {
+        try {
+          const r = SG.AIPrompt.execute(app, cmds);
+          it.ok = '✓ 已执行 ' + cmds.length + ' 条指令，新建 ' + r.created.length + ' 个对象。（Ctrl+Z 可撤销）';
+          const sel = r.created.filter((id) => { const o = app.S.map.get(id); return o && (o.type === 'point' || o.type === 'plane' || o.type === 'sphere'); });
+          if (sel.length) app.select(sel);
+        } catch (e) { it.err = e.message; return it; }
       }
-      if (data.message) body.appendChild(h('div', null, data.message));
-      const cmds = data.commands || [];
-      if (data.thought) body.appendChild(h('details', null, h('summary', null, '作图思路'), h('div', null, data.thought)));
-      body.appendChild(h('details', null, h('summary', null, '作图指令（' + cmds.length + ' 条）'), h('pre', null, JSON.stringify(cmds, null, 1))));
-      if (!cmds.length) return;
-      try {
-        const r = SG.AIPrompt.execute(this.app, cmds);
-        body.appendChild(h('div', { class: 'res-ok' }, '✓ 已执行 ' + cmds.length + ' 条指令，新建 ' + r.created.length + ' 个对象。（Ctrl+Z 可撤销）'));
-        const newPts = r.created.filter((id) => { const o = this.app.S.map.get(id); return o && (o.type === 'point' || o.type === 'plane' || o.type === 'sphere'); });
-        if (newPts.length) this.app.select(newPts);
-      } catch (e) {
-        body.appendChild(h('div', { class: 'res-err' }, '✗ ' + e.message + '（已全部回滚）'));
-        body.appendChild(h('div', { class: 'btnrow' }, h('button', {
-          class: 'primary',
-          onclick: () => this.send('你给出的指令执行出错：' + e.message + '\n请修正后重新给出完整的指令列表（当前图形见上方，之前的指令都没有执行）。原始要求：' + request, true),
-        }, '把错误发给 AI 修正')));
+      if (ctls.length) {
+        const list = SG.Controls.normalizeAI(ctls);
+        if (list.length) {
+          const pins = list.filter((x) => x.pin).map((x) => x.id);
+          for (const x of list) delete x.pin;
+          app.setControls(app.controls.concat(list));
+          for (const id of pins) app.hudToggle('ctl', id, true);
+          it.ctlOk = '✓ 已添加 ' + list.length + ' 个控件到"控制"分区' + (pins.length ? '，其中 ' + pins.length + ' 个已显示在画布左上角' : '') + '。';
+        }
       }
+      return it;
     }
 
     manual() {

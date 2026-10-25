@@ -98,7 +98,7 @@
    dihedral [平面,平面] 或 [A,B,C,D] 表示二面角 A-BC-D；area [多边形]；volume [立体]；surface [立体]；
    circle [圆]（"what":"len"|"r"|"area"）；sphere [球]（"what":"r"|"S"|"V"）
 37. {"op":"rightAngle","points":["A","H","B"]} —— 在 H 处画直角标记；{"op":"angleMark","points":["A","O","B"],"count":1} —— 角的圆弧标记
-38. {"op":"text","at":"A","text":"文字"} —— 文字标注
+38. {"op":"text","at":"A","text":"文字"} —— 文字标注（跟随点 A）；也可写 "line":"AB"（跟随线段中点）或 "pos":[x,y,z]（固定位置），可加 "color"、"size"。文字中可写变量，随图形实时变化：{len:A,B} 长度，{ang:A,B,C} ∠ABC，{坐标:A}，{度量:名称}，{参数:M.t}；末尾加 |e 显示精确值（如 {len:A,C1|e}），|d3 保留 3 位小数
 
 ## 修改
 39. {"op":"style","targets":["AB","CD"],"dash":"dashed","color":"#d0451b","label":true,"hidden":false} —— 修改样式（dash: auto/solid/dashed；label: 是否显示名称标签）
@@ -133,6 +133,45 @@
 {"thought":"作垂足 H，连接 PH、HC，∠PCH 即线面角","commands":[{"op":"foot","name":"H","point":"P","plane":"ABCD"},{"op":"segment","a":"P","b":"H"},{"op":"segment","a":"H","b":"C"},{"op":"rightAngle","points":["P","H","C"]},{"op":"measure","type":"angleLinePlane","items":[["P","C"],"ABCD"]},{"op":"labels","targets":["H"],"show":true}],"message":"H 为 P 在底面上的射影，∠PCH 为 PC 与底面所成的角。"}
 \`\`\`
 `;
+
+  /** 作图模式下附加的说明：AI 可以顺便设计"控制"分区中的控件 */
+  const CONTROLS_PROMPT = `
+
+# 六、控件（可选）
+当用户要求"做一个按钮 / 滑动条 / 开关""演示……的运动""做一个可以……的控件"时，在 JSON 中增加 "controls" 数组（与 commands 并列；不需要控件时不要写）。控件会放到"控制"分区，用户可以把它们"上屏"到画布左上角。
+- 滑动条：{"type":"slider","label":"M 的位置","target":"M","key":"t","min":0,"max":1} —— 拖动改变某个对象的参数（点在线上的 t、立体的 a/h/r、翻折的 angle、pointOnPlane 的 u/v 等）
+- 按钮：{"type":"button","label":"演示运动","desc":"作用说明","actions":[ ...动作... ]}
+- 开关：{"type":"toggle","label":"显示辅助线","targets":["AE","β"]} —— 勾选时显示这些对象，取消时隐藏
+- 文字：{"type":"text","label":"结论","text":"∠ABC = {ang:A,B,C}"} —— 可含变量（写法同 text 指令）
+- 任一控件加 "pin":true 表示直接显示在画布左上角面板中。
+按钮的动作（按顺序执行），参数用 "target"+"key"（以及 "min"、"max"）直接指定：
+- {"do":"set","target":"M","key":"t","value":0.5} —— 平滑地把参数设为某值
+- {"do":"play","target":"M","key":"t","min":0,"max":1,"seconds":4,"loop":true,"trace":false} —— 参数来回变化的动画，trace 为 true 时同时描出轨迹
+- {"do":"stop"} —— 停止动画
+- {"do":"extremum","type":"min","params":[{"target":"M","key":"t","min":0,"max":1}],"target":{"op":"sum","terms":[{"coef":1,"measure":{"type":"length","items":["M","E"]}}]},"label":"ME 的最小值"} —— 程序扫描参数范围求最值（type 为 min 或 max；target 中 op 可为 sum / product / ratio，度量格式同 measure 指令），并跳到最值位置
+- {"do":"show"|"hide"|"toggle","targets":["AE"]} —— 显示 / 隐藏 / 切换对象
+- {"do":"draw","commands":[ ...作图指令... ]} —— 第一次点击时作图，再次点击切换显示 / 隐藏
+- {"do":"view","az":30,"el":20} —— 转到指定视角；{"do":"view","preset":"default"} 默认视角
+- {"do":"trace","target":"M","key":"t","min":0,"max":1,"mode":"full"} —— 画出动点的完整轨迹；"mode":"clear" 清除
+- {"do":"text","text":"……"} —— 在控制分区显示一段说明（可含变量）
+- {"do":"measure","measure":{"type":"length","items":["P","M"]}} —— 作出一个度量
+注意：控件中引用的对象必须已存在或在本次 commands 中作出；要做"动点"控件时，先用动点指令（pointOnLine 且 "locked":false、pointOnCircle、pointOnPlane 等）作出动点。`;
+
+  /** 对话模式：只交流，不作图 */
+  const CHAT_PROMPT = `你是"立体几何绘图器"中的立体几何助手，正在和用户（多为高中师生）对话。
+- 每次用户消息前会附上当前画布上的图形数据（JSON：对象、坐标、度量值等），有时还会附上一道题目的信息；请结合它们回答。
+- 这是对话模式：不要输出作图指令或 JSON，直接用中文回答，讲清楚思路，必要时给出推导和精确值（如 √6/3、arctan√2）。
+- 公式用普通文本书写（如 AB = √(1² + 2²) = √5），不要用 LaTeX。
+- 回答简洁、有条理；如果用户想让你画图，提醒他切换到"作图"模式。`;
+
+  /** 当前题目的文字描述（附带题目时使用） */
+  function problemContext(app) {
+    const pb = app.problem;
+    if (!pb || !pb.info) return '';
+    let s = '【当前题目】\n' + SG.Problem.infoText(pb.info);
+    if (pb.panel) s += '\n\n【题目控制面板】\n```json\n' + JSON.stringify(pb.panel) + '\n```';
+    return s;
+  }
 
   /** 把场景转为发送给 AI 的精简 JSON */
   function describeScene(app) {
@@ -185,9 +224,12 @@
     return out;
   }
 
-  function buildUserMessage(app, text) {
+  /** opts: { problem: 是否附带题目, chat: 对话模式 } */
+  function buildUserMessage(app, text, opts) {
+    opts = opts || {};
     const scene = describeScene(app);
-    return '【当前图形】\n```json\n' + JSON.stringify(scene) + '\n```\n\n【作图要求】\n' + text;
+    const pb = opts.problem ? problemContext(app) : '';
+    return (pb ? pb + '\n\n' : '') + '【当前图形】\n```json\n' + JSON.stringify(scene) + '\n```\n\n' + (opts.chat ? '【用户】\n' : '【作图要求】\n') + text;
   }
 
   /** 从模型回复中提取 JSON 对象 */
@@ -266,5 +308,5 @@
     return { log, created };
   }
 
-  SG.AIPrompt = { SYSTEM_PROMPT, describeScene, buildUserMessage, parseReply, execute, normalizeCommand };
+  SG.AIPrompt = { SYSTEM_PROMPT, CONTROLS_PROMPT, CHAT_PROMPT, problemContext, describeScene, buildUserMessage, parseReply, execute, normalizeCommand };
 })(globalThis.SG = globalThis.SG || {});

@@ -237,6 +237,7 @@
   app.on('viewmode', () => document.getElementById('btnOblique').classList.toggle('on', app.cam.mode === 'oblique'));
   app.on('measureCreated', (id) => { switchTab('measures'); app.select(id); });
   app.on('openProblemTab', () => { setPanel(true); switchTab('problem'); });
+  app.on('openTab', (name) => { setPanel(true); switchTab(name); });
   app.on('settings', () => { buildChecks(); aiPanel.updateModel(); });
 
   // 空画布提示
@@ -245,7 +246,7 @@
     h('div', { style: { fontSize: '20px', color: '#5b6b7c', marginBottom: '6px' } }, '开始画图'),
     h('div', null, '① 左侧 "立体" / "平面图形" 中选择常用图形，一键生成'),
     h('div', null, '② 或用 "面 → 多边形" 在底面上画出底面，再 "拉伸成柱 / 收成锥"'),
-    h('div', null, '③ 选中对象后，画布下方会出现快捷操作；右上角 "AI 辅助" 可用文字描述作图'),
+    h('div', null, '③ 选中对象后，画布下方会出现快捷操作；右上角 "AI 辅助" 可用文字描述作图，或和 AI 讨论题目'),
     h('div', null, '④ 有题目？点顶栏 "新建" → "从题目新建"，粘贴题目或上传图片，自动画图'));
   stage.appendChild(hello);
   function welcome() { hello.style.display = app.S.objects.length ? 'none' : ''; }
@@ -281,10 +282,12 @@
       </ul>
       <h4>从题目新建</h4>
       <p>顶栏"新建" → "从题目新建"：粘贴题目文字，或上传 / 粘贴题目截图（含示意图）。AI 识别后会让你确认、修改题目信息（数据、动点、题目要求等），提交后自动画图，并在右侧"题目"标签页生成本题专属的控制面板：动点滑块、AI 设计的演示按钮（播放动点运动、跳到最值位置、作辅助线……）、"与原图同视角"按钮。题目求最值时，AI 与程序会各算一次并显示是否一致；不一致时可"一键检查问题"让 AI 找出原因并修正。识别和画图可以分别选用不同的模型和思考强度。</p>
-      <h4>AI 辅助作图</h4>
-      <p>在"设置"中填好 API Key（默认 DeepSeek），在右侧"AI 助手"中用文字描述作图要求，例如"过 BD 作与底面成 60° 的平面"。当前图形会自动一并发送，AI 返回的作图指令会被直接画出，不满意可撤销。</p>
+      <h4>文字与左上角面板</h4>
+      <p>"文字"工具（<kbd>T</kbd>）：单击点、线或空白处放置文字，文字会跟随该点或线。文字中可以插入变量（如 ∠ABC = {ang:A,B,C}），随图形实时变化。单击图中任何文字可以编辑、隐藏，或添加到画布左上角的面板。右侧"控制"标签页可以新建滑动条、按钮、开关、文字等控件，点 📌 "上屏"后显示在左上角面板中（可折叠、拖动）。导出图片时可以选择是否附带面板中的文字。</p>
+      <h4>AI 助手</h4>
+      <p>在"设置"中填好 API Key（默认 DeepSeek），在右侧"AI 助手"中选择模式：<b>作图</b>——用文字描述作图要求，例如"过 BD 作与底面成 60° 的平面""做一个滑动条控制 E 的位置"，AI 返回的作图指令会被直接画出（控件放到"控制"标签页），不满意可撤销；<b>对话</b>——和 AI 讨论题目，AI 能看到当前图形但不会作图。勾选"附带当前题目"会把题目信息一并发送。"新对话"开始新的对话，"记录"中可以切换、删除以前的对话。</p>
       <h4>快捷键</h4>
-      <p><kbd>V</kbd> 选择　<kbd>P</kbd> 点　<kbd>S</kbd> 线段　<kbd>G</kbd> 多边形　<kbd>M</kbd> 中点　<kbd>F</kbd> 适应窗口　<kbd>L</kbd> 标签　<kbd>Enter</kbd> 完成多边形　<kbd>Esc</kbd> 取消</p>` });
+      <p><kbd>V</kbd> 选择　<kbd>P</kbd> 点　<kbd>S</kbd> 线段　<kbd>G</kbd> 多边形　<kbd>M</kbd> 中点　<kbd>T</kbd> 文字　<kbd>F</kbd> 适应窗口　<kbd>L</kbd> 标签　<kbd>Enter</kbd> 完成多边形　<kbd>Esc</kbd> 取消</p>` });
     UI.modal('使用说明', body, [{ label: '知道了', primary: true, value: null }]);
   }
 
