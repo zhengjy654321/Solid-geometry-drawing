@@ -6,6 +6,6 @@
   "scripts": {
     "start": "npx http-server -p 8080 -c-1 .",
     "test": "node tests/core.test.js && node tests/problem.test.js",
-    "test:ui": "node tests/ui.js && node tests/ui2.js && node tests/ai.js && node tests/scenes.js && node tests/view.js && node tests/problem-ui.js && node tests/text-controls.js && node tests/ai2.js && node tests/label-click.js"
+    "test:ui": "node tests/ui.js && node tests/ui2.js && node tests/ai.js && node tests/scenes.js && node tests/view.js && node tests/problem-ui.js && node tests/text-controls.js && node tests/ai2.js && node tests/label-click.js && node tests/vault.js"
   }
 }

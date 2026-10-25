@@ -53,6 +53,7 @@
         for (const k of ['modelThink', 'modelFast']) if (['deepseek-chat', 'deepseek-reasoner'].includes(ai[k])) { ai[k] = 'deepseek-flash'; changed = true; }
         if (changed) UI.LS.set('sg.settings', this.settings);
       }
+      if (SG.Vault) SG.Vault.checkExpire(this);
       this.view = this.settings.view;
       this.sel = [];
       this.hover = null;

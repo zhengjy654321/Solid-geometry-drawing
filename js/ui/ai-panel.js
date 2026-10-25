@@ -433,6 +433,52 @@
         } catch (e) { testRes.textContent = '✗ ' + e.message; }
       },
     }, '测试连接');
+    // ---- 激活密码：输入正确的密码即可解出内置的 API Key（7 天有效）
+    const actPw = h('input', { type: 'password', placeholder: '激活密码', autocomplete: 'off' });
+    const actRes = h('span', { class: 'note' });
+    const fmtDay = (t) => new Date(t).toLocaleDateString();
+    const showAct = () => { actRes.textContent = s.ai.keyExpire && s.ai.apiKey ? '✓ 已激活，有效期至 ' + fmtDay(s.ai.keyExpire) : ''; };
+    showAct();
+    const doAct = async () => {
+      if (!actPw.value) { actRes.textContent = '请输入激活密码'; return; }
+      actRes.textContent = '验证中…';
+      try { await SG.Vault.activate(app, actPw.value); key.value = s.ai.apiKey; actPw.value = ''; showAct(); app.emit('settings'); }
+      catch (e) { actRes.textContent = '✗ ' + e.message; }
+    };
+    actPw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); doAct(); } });
+    const actRow = h('div', { class: 'field' }, h('label', null, '激活密码'), actPw,
+      h('button', { class: 'btn', onclick: doAct }, '激活'),
+      h('button', { class: 'btn', title: '清除本机保存的 Key', onclick: () => { SG.Vault.clear(app); key.value = ''; actRes.textContent = '已清除'; } }, '清除'));
+    // ---- 高级调试：连续点击 7 次才展开（生成激活码）
+    const gKey = h('input', { type: 'password', placeholder: 'API Key（sk-…）' });
+    const gPw = h('input', { type: 'password', placeholder: '激活密码（建议 12 位以上）' });
+    const gPw2 = h('input', { type: 'password', placeholder: '再输入一次密码' });
+    const gOut = h('textarea', { rows: 3, readonly: true, style: { width: '100%', fontFamily: 'monospace', fontSize: '12px' } });
+    const gMsg = h('span', { class: 'note' });
+    const gen = async () => {
+      if (!gKey.value.trim() || !gPw.value) { gMsg.textContent = '请填写 Key 和密码'; return; }
+      if (gPw.value !== gPw2.value) { gMsg.textContent = '两次密码不一致'; return; }
+      gMsg.textContent = '生成中…';
+      const code = await SG.Vault.encrypt(gKey.value.trim(), gPw.value);
+      await SG.Vault.decrypt(code, gPw.value); // 自检
+      gOut.value = code;
+      gMsg.textContent = '✓ 已生成。把这串激活码发给开发者放进网站；Key 本身不要发。';
+    };
+    const advBody = h('div', { class: 'adv-body', style: { display: 'none' } },
+      h('div', { class: 'note' }, '生成激活码：在本机用密码加密 API Key，Key 不会发送到任何地方。'),
+      h('div', { class: 'field' }, h('label', null, 'API Key'), gKey),
+      h('div', { class: 'field' }, h('label', null, '密码'), gPw),
+      h('div', { class: 'field' }, h('label', null, '确认密码'), gPw2),
+      h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', onclick: gen }, '生成激活码'),
+        h('button', { class: 'btn', onclick: () => { if (gOut.value) navigator.clipboard.writeText(gOut.value).then(() => { gMsg.textContent = '✓ 已复制'; }); } }, '复制'), gMsg),
+      gOut);
+    let taps = 0, tapT = 0;
+    const advHead = h('div', { class: 'adv-head', onclick: () => {
+      const now = Date.now();
+      taps = now - tapT < 1500 ? taps + 1 : 1;
+      tapT = now;
+      if (taps >= 7) advBody.style.display = '';
+    } }, '▸ 高级调试');
     const fsz = h('input', { type: 'number', value: v.fontSize, min: 10, max: 30 });
     const lsc = h('input', { type: 'number', value: v.lineScale, min: 0.5, max: 3, step: 0.1 });
     const hid = h('select', null, [['dashed', '画成虚线（教材画法）'], ['hide', '不画'], ['solid', '画成实线']].map(([k, l]) => h('option', { value: k, selected: v.hiddenMode === k }, l)));
@@ -448,13 +494,15 @@
       f('思考模型', mThinkSel.el), f('非思考模型', mFastSel.el), effRow, f('记忆轮数', hist),
       h('div', { class: 'note' }, 'DeepSeek：模型可填 deepseek-flash（默认，快且便宜）或 deepseek-v4-pro（更强、更贵），思考与非思考可以用同一个模型；"开启 / 关闭思考"通过 thinking 参数切换，思考强度对应 reasoning_effort。OpenAI 及其他兼容接口按"思考 / 非思考"切换模型名，可自行修改地址与模型。API Key 仅保存在本机浏览器（localStorage）中，直接从浏览器发送到你选择的接口。'),
       h('div', { class: 'btnrow' }, test, testRes),
+      actRow, h('div', { style: { marginLeft: '96px' } }, actRes),
+      advHead, advBody,
       h('h4', { style: { margin: '14px 0 6px' } }, '显示与绘图'),
       f('标签字号', fsz), f('线宽倍数', lsc), f('被遮挡的线', hid),
       f('吸附网格', snap, h('span', { class: 'note' }, '步长'), snapStep),
       f('网格间距', gridStep), f('新建点显示标签', labelNew), f('显示顶点圆点', dots));
     UI.modal('设置', body, [{ label: '取消', value: null }, {
       label: '保存', primary: true, onClick: () => {
-        Object.assign(s.ai, { provider: prov.value, baseUrl: base.value.trim(), apiKey: key.value.trim(), modelThink: mThink.value.trim(), modelFast: mFast.value.trim(), effort: effort.value, history: +hist.value || 0 });
+        Object.assign(s.ai, { provider: prov.value, baseUrl: base.value.trim(), apiKey: key.value.trim(), keyExpire: key.value.trim() === s.ai.apiKey ? s.ai.keyExpire || 0 : 0, modelThink: mThink.value.trim(), modelFast: mFast.value.trim(), effort: effort.value, history: +hist.value || 0 });
         Object.assign(v, { fontSize: +fsz.value || 17, lineScale: +lsc.value || 1, hiddenMode: hid.value, snapGrid: snap.checked, snapStep: +snapStep.value || 0.5, gridStep: +gridStep.value || 1, labelNew: labelNew.checked, showDots: dots.checked });
         app.saveSettings();
         app.render();
