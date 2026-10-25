@@ -25,10 +25,11 @@ jobs:
         run: mkdir www && cp -r index.html css js docs www/
       - name: 生成安卓工程与图标
         run: |
-          npm i --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/filesystem@7 @capacitor/share@7 @capacitor/assets@3
+          npm i @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/filesystem@7 @capacitor/share@7 @capacitor/assets@3
           npx cap add android
           npx capacitor-assets generate --android --iconBackgroundColor '#0d1526' --splashBackgroundColor '#0d1526'
           npx cap sync android
+          grep -q capacitor-filesystem android/capacitor.settings.gradle && grep -q capacitor-share android/capacitor.settings.gradle || { echo "插件未装入"; exit 1; }
           # 版本号随每次编译递增，才能覆盖安装旧版
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
       - name: 编译并签名
