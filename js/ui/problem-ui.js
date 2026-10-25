@@ -12,10 +12,16 @@
   // ================================================================ AI 调用与模型选择
   function stepDefaults(app, step) {
     const ai = app.settings.ai;
+    // 旧版本保存的"画图用 Flash"改为新的默认值 Pro
+    if (ai.problemV !== 2) {
+      if (ai.problem && ai.problem.gen && ai.problem.gen.model === 'deepseek-flash') delete ai.problem.gen.model;
+      ai.problemV = 2;
+      app.saveSettings();
+    }
     const d = (ai.problem && ai.problem[step]) || {};
     const ds = ai.provider === 'deepseek';
     return {
-      model: d.model || (ds ? 'deepseek-flash' : step === 'rec' ? ai.modelFast : ai.modelThink),
+      model: d.model || (ds ? (step === 'rec' ? 'deepseek-flash' : 'deepseek-v4-pro') : step === 'rec' ? ai.modelFast : ai.modelThink),
       think: d.think != null ? d.think : step !== 'rec',
       effort: d.effort || 'high',
     };
@@ -26,20 +32,17 @@
     app.saveSettings();
   }
   /** 模型 / 思考 / 思考强度 选择行 */
-  function modelRow(app, step, title) {
+  function modelRow(app, step, title, flashOnly) {
     const d = stepDefaults(app, step);
     const ds = app.settings.ai.provider === 'deepseek';
-    const listId = 'pbModels_' + step;
-    const models = new Set(['deepseek-flash', 'deepseek-v4-pro', app.settings.ai.modelFast, app.settings.ai.modelThink].filter(Boolean));
-    const model = h('input', { type: 'text', value: d.model, list: listId, class: 'pb-model' });
-    model.setAttribute('list', listId);
+    const model = SG.ModelUI.select(d.model, { provider: () => app.settings.ai.provider, known: () => SG.ModelUI.known(app), flashOnly: flashOnly && ds });
     const think = h('select', null, h('option', { value: '0', selected: !d.think }, '关闭思考'), h('option', { value: '1', selected: !!d.think }, '开启思考'));
     const effort = h('select', null, [['low', '思考强度：低'], ['high', '思考强度：高'], ['max', '思考强度：最高']].map(([v, l]) => h('option', { value: v, selected: d.effort === v }, l)));
     const sync = () => { effort.style.display = ds && think.value === '1' ? '' : 'none'; };
     think.addEventListener('change', sync);
     sync();
-    const el = h('div', { class: 'pb-model-row' }, h('span', { class: 'pb-lbl' }, title), model, think, effort, h('datalist', { id: listId }, Array.from(models).map((m) => h('option', { value: m }))));
-    return { el, get: () => ({ model: model.value.trim(), think: think.value === '1', effort: effort.value }) };
+    const el = h('div', { class: 'pb-model-row' }, h('span', { class: 'pb-lbl' }, title), model.el, think, effort);
+    return { el, get: () => ({ model: model.get(), think: think.value === '1', effort: effort.value }), setFlashOnly: (b) => ds && model.setFlashOnly(b) };
   }
   async function callAI(app, messages, opt, onDelta, signal) {
     const ai = app.settings.ai;
@@ -139,11 +142,11 @@
       const file = h('input', { type: 'file', accept: 'image/*', multiple: true, class: 'hidden' });
       file.addEventListener('change', () => { this.addFiles(Array.from(file.files)); file.value = ''; });
       this.thumbs = h('div', { class: 'pb-thumbs' });
-      this.dropZone = h('div', { class: 'pb-drop', onclick: () => file.click() }, '📷 点击选择图片，或把图片拖到这里，或直接 Ctrl+V 粘贴截图', h('div', { class: 'note' }, '可以上传题目截图 / 照片（含示意图）。识别图片需要支持图片的模型，DeepSeek 请用 deepseek-flash。'));
+      this.dropZone = h('div', { class: 'pb-drop', onclick: () => file.click() }, '📷 点击选择图片，或把图片拖到这里，或直接 Ctrl+V 粘贴截图', h('div', { class: 'note' }, '可以上传题目截图 / 照片（含示意图）。DeepSeek 只有 Flash 支持看图，所以带图片时识别固定使用 Flash；纯文字时也可选 Pro。'));
       this.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); this.dropZone.classList.add('over'); });
       this.dropZone.addEventListener('dragleave', () => this.dropZone.classList.remove('over'));
       this.dropZone.addEventListener('drop', (e) => { e.preventDefault(); this.dropZone.classList.remove('over'); this.addFiles(Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))); });
-      this.rec = modelRow(this.app, 'rec', '识别用的 AI');
+      this.rec = modelRow(this.app, 'rec', '识别用的 AI', this.images.length > 0);
       this.prog = progressBox();
       this.renderThumbs();
       this.render('从题目新建 · 第 1 步：输入题目', h('div', null,
@@ -162,6 +165,7 @@
       this.renderThumbs();
     }
     renderThumbs() {
+      if (this.rec) this.rec.setFlashOnly(this.images.length > 0);
       if (!this.thumbs) return;
       this.thumbs.innerHTML = '';
       this.images.forEach((im, i) => {
@@ -534,7 +538,8 @@
           return { label: ex.label, type: ex.type, params: ex.params, target: ex.target, ai: ex.ai, program: res.ok ? { value: res.value, at: res.at, table: (res.samples || []).map(([x, y]) => ({ at: x, value: y })) } : { error: res.message }, status: v.cmp && v.cmp.status };
         }),
       };
-      const opt = stepDefaults(app, 'gen');
+      const opt = this.checkRow ? this.checkRow.get() : stepDefaults(app, 'check');
+      saveStep(app, 'check', opt);
       this.check = { busy: true, status: '正在让 AI 检查…（' + opt.model + '）' };
       this.render();
       this.ctrl = new AbortController();
@@ -650,7 +655,11 @@
       // 一键检查
       if (this.hasProblems() || this.check) {
         const box = h('div', { class: 'sec pp-check' });
-        if (this.hasProblems() && !(this.check && this.check.busy)) box.appendChild(h('button', { class: 'pp-btn danger', onclick: () => this.runCheck() }, h('b', null, '一键检查问题'), h('small', null, '把题目、图形、AI 答案和程序结果一起发给 AI，找出哪里出错')));
+        if (this.hasProblems() && !(this.check && this.check.busy)) {
+          box.appendChild(h('button', { class: 'pp-btn danger', onclick: () => this.runCheck() }, h('b', null, '一键检查问题'), h('small', null, '把题目、图形、AI 答案和程序结果一起发给 AI，找出哪里出错')));
+          this.checkRow = modelRow(app, 'check', '检查用的 AI');
+          box.appendChild(this.checkRow.el);
+        }
         const c = this.check;
         if (c && c.busy) {
           this.checkStatusEl = h('div', { class: 'info' }, c.status);

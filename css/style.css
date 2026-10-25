@@ -223,6 +223,13 @@ input, select, textarea { font: inherit; color: inherit; }
 .modal-box .help kbd { background: #f1f3f6; border: 1px solid #d5dbe2; border-radius: 4px; padding: 0 5px; font-size: 12px; }
 .modal-box .note { color: var(--muted); font-size: 12px; line-height: 1.6; }
 
+/* ---------------- 模型下拉 */
+.model-pick { display: inline-flex; gap: 4px; align-items: center; flex: 1; min-width: 0; }
+.model-pick .model-sel { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 5px; padding: 3px 4px; }
+.model-pick .model-custom { width: 140px; border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; }
+.pb-model-row .model-pick { flex: none; }
+.pb-model-row .model-pick .model-sel { width: 230px; }
+
 /* ---------------- 从题目新建 */
 .modal-box.wide { width: min(880px, calc(100vw - 24px)); }
 .pb-steps { color: var(--muted); margin-bottom: 8px; }

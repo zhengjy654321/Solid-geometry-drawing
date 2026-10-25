@@ -174,11 +174,12 @@
     const prov = h('select', null, Object.entries(SG.PROVIDERS).map(([k, p]) => h('option', { value: k, selected: ai.provider === k }, p.label)));
     const base = h('input', { type: 'text', value: ai.baseUrl });
     const key = h('input', { type: 'password', value: ai.apiKey, placeholder: 'sk-...' });
-    const mThink = h('input', { type: 'text', value: ai.modelThink });
-    const mFast = h('input', { type: 'text', value: ai.modelFast });
+    const knownM = () => [ai.modelThink, ai.modelFast, SG.PROVIDERS[prov.value] && SG.PROVIDERS[prov.value].modelThink, SG.PROVIDERS[prov.value] && SG.PROVIDERS[prov.value].modelFast];
+    const mThinkSel = SG.ModelUI.select(ai.modelThink, { provider: () => prov.value, known: knownM });
+    const mFastSel = SG.ModelUI.select(ai.modelFast, { provider: () => prov.value, known: knownM });
+    const mThink = { get value() { return mThinkSel.get(); }, set value(v) { mThinkSel.set(v); } };
+    const mFast = { get value() { return mFastSel.get(); }, set value(v) { mFastSel.set(v); } };
     const hist = h('input', { type: 'number', value: ai.history, min: 0, max: 20 });
-    const models = h('datalist', { id: 'dsModels' }, ['deepseek-flash', 'deepseek-v4-pro'].map((m) => h('option', { value: m })));
-    mThink.setAttribute('list', 'dsModels'); mFast.setAttribute('list', 'dsModels');
     const effort = h('select', null, [['low', '低（更快、更省）'], ['high', '高（默认）'], ['max', '最高（更复杂的题）']].map(([v, l]) => h('option', { value: v, selected: (ai.effort || 'high') === v }, l)));
     const effRow = h('div', { class: 'field' }, h('label', null, '思考强度'), effort);
     const syncEff = () => { effRow.style.display = prov.value === 'deepseek' ? '' : 'none'; };
@@ -188,6 +189,7 @@
       if (p.baseUrl) base.value = p.baseUrl;
       if (p.modelThink) mThink.value = p.modelThink;
       if (p.modelFast) mFast.value = p.modelFast;
+      mThinkSel.rebuild(); mFastSel.rebuild();
       syncEff();
     });
     const showKey = h('button', { class: 'btn', onclick: () => { key.type = key.type === 'password' ? 'text' : 'password'; } }, '👁');
@@ -213,7 +215,7 @@
     const body = h('div', null,
       h('h4', { style: { margin: '6px 0' } }, 'AI 辅助作图'),
       f('接口', prov), f('接口地址', base), f('API Key', key, showKey),
-      f('思考模型', mThink), f('非思考模型', mFast), effRow, f('记忆轮数', hist), models,
+      f('思考模型', mThinkSel.el), f('非思考模型', mFastSel.el), effRow, f('记忆轮数', hist),
       h('div', { class: 'note' }, 'DeepSeek：模型可填 deepseek-flash（默认，快且便宜）或 deepseek-v4-pro（更强、更贵），思考与非思考可以用同一个模型；"开启 / 关闭思考"通过 thinking 参数切换，思考强度对应 reasoning_effort。OpenAI 及其他兼容接口按"思考 / 非思考"切换模型名，可自行修改地址与模型。API Key 仅保存在本机浏览器（localStorage）中，直接从浏览器发送到你选择的接口。'),
       h('div', { class: 'btnrow' }, test, testRes),
       h('h4', { style: { margin: '14px 0 6px' } }, '显示与绘图'),

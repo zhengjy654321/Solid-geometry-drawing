@@ -59,6 +59,8 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < (eps || 1e-6), (msg
   await page.setInputFiles('.modal-box input[type=file]', path.join(__dirname, 'fixtures-problem.png'));
   await page.waitForTimeout(300);
   assert.strictEqual(await page.locator('.pb-thumb').count(), 1);
+  const recOpts = await page.evaluate(() => Array.from(document.querySelectorAll('.pb-model-row select.model-sel option')).map((o) => o.value));
+  assert.deepStrictEqual(recOpts, ['deepseek-flash'], '有图片时识别只能选 Flash');
   await page.screenshot({ path: out + '/pb1.png' });
   await page.click('.modal-box .foot button:has-text("识别题目")');
   await page.waitForSelector('.pb-grid', { timeout: 5000 });
@@ -75,6 +77,7 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < (eps || 1e-6), (msg
   await page.waitForFunction(() => document.getElementById('modal').classList.contains('hidden'), null, { timeout: 5000 });
   const r1 = await page.evaluate(() => window.__reqs[1]);
   assert.deepStrictEqual(r1.thinking, { type: 'enabled' }, '画图默认开启思考');
+  assert.strictEqual(r1.model, 'deepseek-v4-pro', '画图默认使用 Pro');
   assert.ok(r1.messages[1].content.includes('把 M 画在 BD 上'), '确认面板的修改应发送给 AI');
   console.log('· 题目面板与最值核实');
   await page.waitForTimeout(300);
@@ -86,8 +89,10 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < (eps || 1e-6), (msg
   assert.ok(st.check, '不一致时应出现"一键检查问题"');
   await page.screenshot({ path: out + '/pb3.png' });
   console.log('· 一键检查 → 应用修正');
+  assert.ok(await page.locator('.pp-check select.model-sel').count() >= 1, '检查步骤可单独选模型');
   await page.click('.pp-check .pp-btn');
   await page.waitForSelector('.pp-check button:has-text("应用修正")', { timeout: 5000 });
+  assert.strictEqual((await page.evaluate(() => window.__reqs[window.__reqs.length - 1])).model, 'deepseek-v4-pro', '检查默认使用 Pro');
   await page.click('.pp-check button:has-text("应用修正")');
   await page.waitForTimeout(200);
   const badge2 = await page.evaluate(() => document.querySelector('.pp-card .pp-badge').textContent);
