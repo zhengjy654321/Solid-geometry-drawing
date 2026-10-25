@@ -177,7 +177,7 @@
     const f = e.target.files[0];
     if (!f) return;
     const rd = new FileReader();
-    rd.onload = () => { try { const d = JSON.parse(rd.result); app.loadData(d); app.fileName = f.name.replace(/\.json$/i, ''); if (!d.cam) app.fit(); UI.toast('已打开 ' + f.name, 'ok'); } catch (err) { UI.toast('文件无法解析：' + err.message, 'err'); } };
+    rd.onload = () => { try { app.loadData(JSON.parse(rd.result)); app.fileName = f.name.replace(/\.json$/i, ''); app.fit(); UI.toast('已打开 ' + f.name, 'ok'); } catch (err) { UI.toast('文件无法解析：' + err.message, 'err'); } };
     rd.readAsText(f);
     e.target.value = '';
   });

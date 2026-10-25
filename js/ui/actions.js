@@ -113,7 +113,7 @@
       for (let i = 0; i < (actions || []).length; i++) {
         const a = actions[i];
         switch (a.do) {
-          case 'set': { const r = this.param(a.param, a); this.stop(); await this.tween([r], [+a.value], a.seconds != null ? a.seconds * 1000 : undefined); break; }
+          case 'set': { const r = this.param(a.param, a); this.stop(); await this.tween([r], [+a.value]); break; }
           case 'play': this.play(a, key + ':' + i); break;
           case 'stop': this.stop(); break;
           case 'extremum':

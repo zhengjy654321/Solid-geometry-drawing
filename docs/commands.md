@@ -135,7 +135,7 @@
 - 文字：{"type":"text","label":"结论","text":"∠ABC = {ang:A,B,C}"} —— 可含变量（写法同 text 指令）
 - 任一控件加 "pin":true 表示直接显示在画布左上角面板中。
 按钮的动作（按顺序执行），参数用 "target"+"key"（以及 "min"、"max"）直接指定：
-- {"do":"set","target":"M","key":"t","value":0.5,"seconds":1} —— 平滑地把参数设为某值（seconds 为动画时长，可省略）
+- {"do":"set","target":"M","key":"t","value":0.5} —— 平滑地把参数设为某值
 - {"do":"play","target":"M","key":"t","min":0,"max":1,"seconds":4,"loop":true,"trace":false} —— 参数来回变化的动画，trace 为 true 时同时描出轨迹
 - {"do":"stop"} —— 停止动画
 - {"do":"extremum","type":"min","params":[{"target":"M","key":"t","min":0,"max":1}],"target":{"op":"sum","terms":[{"coef":1,"measure":{"type":"length","items":["M","E"]}}]},"label":"ME 的最小值"} —— 程序扫描参数范围求最值（type 为 min 或 max；target 中 op 可为 sum / product / ratio，度量格式同 measure 指令），并跳到最值位置
