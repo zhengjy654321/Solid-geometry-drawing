@@ -102,8 +102,18 @@
     ]);
   }
 
+  /** 是否运行在安卓 APK（Capacitor）中 */
+  const isNative = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  /** APK 中：把文件写入手机缓存目录，再弹出系统的"分享 / 保存到"菜单 */
+  async function nativeSave(name, blob) {
+    const { Filesystem, Share } = window.Capacitor.Plugins;
+    const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+    const r = await Filesystem.writeFile({ path: name, data, directory: 'CACHE' });
+    await Share.share({ title: name, dialogTitle: '保存或分享 ' + name, url: r.uri });
+  }
   function download(name, content, mime) {
     const blob = content instanceof Blob ? content : new Blob([content], { type: mime || 'application/octet-stream' });
+    if (isNative()) { nativeSave(name, blob).catch((e) => { if (!/cancel/i.test(e && e.message)) toast('保存失败：' + (e && e.message), 'err'); }); return; }
     const a = h('a', { href: URL.createObjectURL(blob), download: name });
     document.body.appendChild(a);
     a.click();
@@ -122,5 +132,5 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 忽略 */ } },
   };
 
-  SG.UI = { h, toast, modal, form, download, nameHTML, esc, LS };
+  SG.UI = { h, toast, modal, form, download, isNative, nameHTML, esc, LS };
 })(globalThis.SG = globalThis.SG || {});

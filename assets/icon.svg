@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2a4a"/>
+      <stop offset="1" stop-color="#0d1526"/>
+    </linearGradient>
+    <linearGradient id="cut" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#ff6a3d"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.42" cy="0.38" r="0.6">
+      <stop offset="0" stop-color="#3d7bff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3d7bff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="0" fill="url(#bg)"/>
+  <!-- 外接球 -->
+  <circle cx="512" cy="530" r="318" fill="url(#glow)" stroke="#8fb6ff" stroke-width="14"/>
+  <ellipse cx="512" cy="530" rx="318" ry="92" fill="none" stroke="#8fb6ff" stroke-width="10" stroke-dasharray="26 22" opacity="0.8"/>
+  <!-- 三棱锥 P-ABC 及截面 -->
+  <polygon points="512,212 318,640 512,742 706,610" fill="none"/>
+  <polygon points="415,426 512,477 609,411 609,411 512,477" fill="none"/>
+  <polygon points="415,426 512,610 609,411" fill="url(#cut)" opacity="0.92"/>
+  <line x1="318" y1="640" x2="706" y2="610" stroke="#ffffff" stroke-width="14" stroke-dasharray="30 24" stroke-linecap="round" opacity="0.85"/>
+  <g stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <line x1="512" y1="212" x2="318" y2="640"/>
+    <line x1="512" y1="212" x2="706" y2="610"/>
+    <line x1="512" y1="212" x2="512" y2="742"/>
+    <line x1="318" y1="640" x2="512" y2="742"/>
+    <line x1="512" y1="742" x2="706" y2="610"/>
+  </g>
+  <g fill="#ffd27a">
+    <circle cx="512" cy="212" r="22"/>
+    <circle cx="318" cy="640" r="18"/>
+    <circle cx="706" cy="610" r="18"/>
+    <circle cx="512" cy="742" r="18"/>
+  </g>
+</svg>

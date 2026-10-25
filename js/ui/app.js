@@ -381,6 +381,7 @@
     }
     copyPNG() {
       this.exportCanvas(3).toBlob(async (b) => {
+        if (UI.isNative()) { UI.download(this.baseName() + '.png', b); return; } // APK 中改为分享图片
         try {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]);
           UI.toast('图片已复制，可直接粘贴到 Word / PPT 中', 'ok');
