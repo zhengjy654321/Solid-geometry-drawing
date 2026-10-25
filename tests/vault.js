@@ -35,6 +35,14 @@ const assert = require('assert');
   assert.strictEqual(r.wrong, '密码错误');
   assert.strictEqual(r.k, 'sk-secret-123');
   assert.ok(Math.abs(r.days - 7) < 0.01);
+  // 激活后设置中不显示 Key，保存设置也不会丢失
+  await page.keyboard.press('Escape');
+  await page.evaluate(async (code) => { SG.app.settings.ai.keyExpire = 0; await SG.Vault.activate(SG.app, 'Pass-word-2026', code); SG.openSettings(SG.app); }, code);
+  const kv = await page.evaluate(() => [...document.querySelectorAll('#modal input')].map((i) => i.value).join('|'));
+  assert.ok(!kv.includes('sk-secret'), '界面上不应出现 Key');
+  await page.click('#modal .foot button.primary');
+  assert.strictEqual(await page.evaluate(() => SG.app.settings.ai.apiKey), 'sk-secret-123');
+  await page.evaluate(() => { SG.app.settings.ai.keyExpire = Date.now() - 1; SG.app.saveSettings(); });
   await page.reload();
   assert.strictEqual(await page.evaluate(() => SG.app.settings.ai.apiKey), '', '到期后应清除 Key');
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console errors');

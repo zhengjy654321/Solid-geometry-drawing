@@ -404,7 +404,11 @@
     const v = app.view;
     const prov = h('select', null, Object.entries(SG.PROVIDERS).map(([k, p]) => h('option', { value: k, selected: ai.provider === k }, p.label)));
     const base = h('input', { type: 'text', value: ai.baseUrl });
-    const key = h('input', { type: 'password', value: ai.apiKey, placeholder: 'sk-...' });
+    // 通过激活密码得到的 Key 不在界面上显示
+    const viaAct = () => !!(s.ai.keyExpire && s.ai.apiKey);
+    const key = h('input', { type: 'password', value: viaAct() ? '' : ai.apiKey, placeholder: 'sk-...' });
+    const syncKey = () => { key.placeholder = viaAct() ? '已通过激活密码设置（已隐藏）' : 'sk-...'; };
+    syncKey();
     const knownM = () => [ai.modelThink, ai.modelFast, SG.PROVIDERS[prov.value] && SG.PROVIDERS[prov.value].modelThink, SG.PROVIDERS[prov.value] && SG.PROVIDERS[prov.value].modelFast];
     const mThinkSel = SG.ModelUI.select(ai.modelThink, { provider: () => prov.value, known: knownM });
     const mFastSel = SG.ModelUI.select(ai.modelFast, { provider: () => prov.value, known: knownM });
@@ -422,13 +426,13 @@
       mThinkSel.rebuild(); mFastSel.rebuild();
       syncEff();
     });
-    const showKey = h('button', { class: 'btn', onclick: () => { key.type = key.type === 'password' ? 'text' : 'password'; } }, '👁');
+    const showKey = h('button', { class: 'btn', title: '显示 / 隐藏手动填写的 Key', onclick: () => { key.type = key.type === 'password' ? 'text' : 'password'; } }, '👁');
     const testRes = h('span', { class: 'note' });
     const test = h('button', {
       class: 'btn', onclick: async () => {
         testRes.textContent = '测试中…';
         try {
-          const r = await SG.AIClient.chat({ baseUrl: base.value, apiKey: key.value.trim(), model: mFast.value, provider: prov.value, think: false, messages: [{ role: 'user', content: '只回复两个字：成功' }] });
+          const r = await SG.AIClient.chat({ baseUrl: base.value, apiKey: key.value.trim() || (viaAct() ? s.ai.apiKey : ''), model: mFast.value, provider: prov.value, think: false, messages: [{ role: 'user', content: '只回复两个字：成功' }] });
           testRes.textContent = '✓ 连接成功：' + r.content.slice(0, 20);
         } catch (e) { testRes.textContent = '✗ ' + e.message; }
       },
@@ -442,13 +446,13 @@
     const doAct = async () => {
       if (!actPw.value) { actRes.textContent = '请输入激活密码'; return; }
       actRes.textContent = '验证中…';
-      try { await SG.Vault.activate(app, actPw.value); key.value = s.ai.apiKey; actPw.value = ''; showAct(); app.emit('settings'); }
+      try { await SG.Vault.activate(app, actPw.value); key.value = ''; syncKey(); actPw.value = ''; showAct(); app.emit('settings'); }
       catch (e) { actRes.textContent = '✗ ' + e.message; }
     };
     actPw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); doAct(); } });
     const actRow = h('div', { class: 'field' }, h('label', null, '激活密码'), actPw,
       h('button', { class: 'btn', onclick: doAct }, '激活'),
-      h('button', { class: 'btn', title: '清除本机保存的 Key', onclick: () => { SG.Vault.clear(app); key.value = ''; actRes.textContent = '已清除'; } }, '清除'));
+      h('button', { class: 'btn', title: '清除本机保存的 Key', onclick: () => { SG.Vault.clear(app); key.value = ''; syncKey(); actRes.textContent = '已清除'; } }, '清除'));
     // ---- 高级调试：连续点击 7 次才展开（生成激活码）
     const gKey = h('input', { type: 'password', placeholder: 'API Key（sk-…）' });
     const gPw = h('input', { type: 'password', placeholder: '激活密码（建议 12 位以上）' });
@@ -502,7 +506,7 @@
       f('网格间距', gridStep), f('新建点显示标签', labelNew), f('显示顶点圆点', dots));
     UI.modal('设置', body, [{ label: '取消', value: null }, {
       label: '保存', primary: true, onClick: () => {
-        Object.assign(s.ai, { provider: prov.value, baseUrl: base.value.trim(), apiKey: key.value.trim(), keyExpire: key.value.trim() === s.ai.apiKey ? s.ai.keyExpire || 0 : 0, modelThink: mThink.value.trim(), modelFast: mFast.value.trim(), effort: effort.value, history: +hist.value || 0 });
+        Object.assign(s.ai, { provider: prov.value, baseUrl: base.value.trim(), apiKey: key.value.trim() || (viaAct() ? s.ai.apiKey : ''), keyExpire: key.value.trim() ? 0 : s.ai.keyExpire || 0, modelThink: mThink.value.trim(), modelFast: mFast.value.trim(), effort: effort.value, history: +hist.value || 0 });
         Object.assign(v, { fontSize: +fsz.value || 17, lineScale: +lsc.value || 1, hiddenMode: hid.value, snapGrid: snap.checked, snapStep: +snapStep.value || 0.5, gridStep: +gridStep.value || 1, labelNew: labelNew.checked, showDots: dots.checked });
         app.saveSettings();
         app.render();
