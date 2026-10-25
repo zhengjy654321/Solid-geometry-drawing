@@ -76,7 +76,7 @@
 \`\`\`
 
 ## 按钮的动作（actions 按顺序执行）
-- {"do":"set","param":"P1","value":0.5} —— 把动点参数平滑地设为某值
+- {"do":"set","param":"P1","value":0.5,"seconds":1} —— 把动点参数平滑地设为某值（seconds 为动画时长，可省略）
 - {"do":"play","param":"P1","from":0,"to":1,"seconds":4,"loop":true,"trace":false} —— 动画：参数从 from 变到 to（loop 为 true 时来回循环），trace 为 true 时同时描出该动点的轨迹
 - {"do":"stop"} —— 停止动画
 - {"do":"extremum","index":0} —— 跳到 extrema[index] 的最值位置（由程序精确计算），并显示结果
