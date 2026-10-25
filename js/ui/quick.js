@@ -193,6 +193,7 @@
     if (only(1) && circles.length === 1) {
       add(circles[0].v && circles[0].v.clip ? '交线长' : '周长', measure('circle', [circles[0].id], { what: 'len' }));
       add('半径', measure('circle', [circles[0].id], { what: 'r' }));
+      add('面积', measure('circle', [circles[0].id], { what: 'area' }));
       add('标出圆心', run('圆心', () => () => C.addPoint({ kind: 'circleCenter', circle: circles[0].id }, { name: S.freshName('O1') }).id));
     }
 

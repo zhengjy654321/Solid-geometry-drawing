@@ -50,7 +50,7 @@
         h('button', { class: 'btn', onclick: quick('len', 2) }, '插入长度'),
         h('button', { class: 'btn', onclick: quick('ang', 3) }, '插入角度'),
         h('label', { class: 'tx-chk' }, exact, '精确值')),
-      h('div', { class: 'note' }, '变量写在 { } 中，会随图形实时变化：{len:A,B} 长度，{ang:A,B,C} ∠ABC，{坐标:A}，{度量:名称}，{参数:M.t}。末尾加 |e 显示精确值（如 √6/3），|d3 保留 3 位小数。'),
+      h('div', { class: 'note' }, '变量写在 { } 中，会随图形实时变化：{len:A,B} 长度，{ang:A,B,C} ∠ABC，{坐标:A}，{度量:名称}，{面积:ABC}，{参数:M.t}。末尾加 |e 显示精确值（如 √6/3），|d3 保留 3 位小数。'),
       h('div', { class: 'tx-row' }, h('b', null, '颜色'), sw, h('b', null, '字号'), size),
       h('div', { class: 'tx-row' }, h('label', { class: 'tx-chk' }, show, '在图中显示'), h('label', { class: 'tx-chk' }, pin, '添加到左上角面板')));
     upd();

@@ -132,7 +132,17 @@
       this.foot = h('div', { class: 'foot' }, buttons.map((b) => h('button', { class: b.primary ? 'primary' : '', onclick: b.onClick }, b.label)));
       this.box.appendChild(this.foot);
     }
-    busy(on) { for (const b of this.foot.querySelectorAll('button')) if (!b.dataset.keep) b.disabled = on; }
+    /** 处理中：禁用按钮，防止重复提交 */
+    busy(on) {
+      this.running = on;
+      for (const b of this.foot.querySelectorAll('button')) {
+        if (b.dataset.keep) continue;
+        b.disabled = on;
+        if (b.classList.contains('primary')) {
+          if (on) { b.dataset.label = b.textContent; b.textContent = '处理中…'; } else if (b.dataset.label) b.textContent = b.dataset.label;
+        }
+      }
+    }
 
     // ---------------------------------------------- 第 1 步：输入题目
     step1() {
@@ -174,6 +184,7 @@
       });
     }
     async recognize() {
+      if (this.running) return;
       if (!this.text.trim() && !this.images.length) { this.prog.error('请先输入题目文字或上传图片'); return; }
       const opt = this.rec.get();
       saveStep(this.app, 'rec', opt);
@@ -242,6 +253,7 @@
 
     // ---------------------------------------------- 第 3 步：生成
     async generate() {
+      if (this.running) return;
       const app = this.app;
       const info = this.info;
       if (!(info.text || '').trim() && !(info.solid || '').trim()) { this.prog.error('请至少填写题目原文或几何体信息'); return; }
@@ -266,6 +278,8 @@
         try {
           const data = SG.AIPrompt.parseReply(res.content);
           buildFromData(app, info, data, this.images, this.useFig.checked);
+          app.fileName = null;
+          addHistory(app, info);
           this.close();
           UI.toast('已根据题目生成图形' + (data.message ? '：' + data.message : ''), 'ok', 5000);
           return;
@@ -319,6 +333,35 @@
   }
 
   // ================================================================ 新建对话框
+  // ================================================================ 题目历史记录（保存在本机浏览器）
+  const HIST_KEY = 'sg.problemHistory', HIST_MAX = 15;
+  function addHistory(app, info) {
+    const list = UI.LS.get(HIST_KEY, []).filter((x) => x && x.data);
+    const title = (info.title || '').trim() || (info.text || info.solid || '').replace(/\s+/g, ' ').slice(0, 40) || '未命名题目';
+    list.unshift({ id: 'ph' + Date.now().toString(36), time: Date.now(), title, data: app.fileData() });
+    // 存不下时逐条删掉最旧的记录
+    for (let n = Math.min(list.length, HIST_MAX); n > 0; n--) {
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(list.slice(0, n))); return; } catch (e) { /* 继续删减 */ }
+    }
+  }
+  function openHistory(app) {
+    const box = h('div', { class: 'ph-list' });
+    const render = () => {
+      const list = UI.LS.get(HIST_KEY, []);
+      box.innerHTML = '';
+      if (!list.length) { box.appendChild(h('div', { class: 'note', style: { padding: '20px 0', textAlign: 'center' } }, '还没有历史题目。用"从题目新建"生成过的题目会自动保存在这里（最多 ' + HIST_MAX + ' 道）。')); return; }
+      const fmt = (t) => { const d = new Date(t), p = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+      for (const it of list) {
+        box.appendChild(h('div', { class: 'ph-item' },
+          h('div', { class: 'ph-main', onclick: () => { document.getElementById('modal').classList.add('hidden'); app.loadData(it.data); UI.toast('已打开：' + it.title, 'ok'); } },
+            h('b', null, it.title), h('small', null, fmt(it.time))),
+          h('button', { class: 'btn danger', title: '删除这条记录', onclick: () => { UI.LS.set(HIST_KEY, UI.LS.get(HIST_KEY, []).filter((x) => x.id !== it.id)); render(); } }, '✕')));
+      }
+    };
+    render();
+    UI.modal('历史题目', h('div', null, h('div', { class: 'note' }, '单击打开（当前画布会被替换，可以撤销）。'), box), [{ label: '关闭', value: null }]);
+  }
+
   function openNew(app, wizardHolder) {
     const card = (icon, title, desc, fn) => h('button', { class: 'pb-card', onclick: fn }, h('div', { class: 'pb-card-ic' }, icon), h('div', null, h('b', null, title), h('small', null, desc)));
     const body = h('div', { class: 'pb-cards' },
@@ -329,12 +372,14 @@
         app.hud.items = [];
         app.setControls([]);
         app.setProblem(null);
+        app.fileName = null;
       }),
       card('✦', '从题目新建', '粘贴题目文字或上传题目图片，AI 识别后由你确认，再自动画图并生成题目控制面板', () => {
         const w = new Wizard(app);
         wizardHolder.current = w;
         w.step1();
-      }));
+      }),
+      card('🕘', '历史题目', '打开以前从题目新建的题目（图形、控制面板一起恢复）', () => openHistory(app)));
     UI.modal('新建', body, [{ label: '取消', value: null }]);
   }
 
@@ -423,6 +468,7 @@
 
     // ---------------------------------------------- 一键检查
     async runCheck() {
+      if (this.check && this.check.busy) return; // 防止重复提交
       const app = this.app, pb = this.pb;
       const report = {
         warnings: pb.warnings || [],
@@ -595,5 +641,5 @@
     }
   }
 
-  SG.ProblemUI = { openNew, Wizard, ProblemPanel, buildFromData, stepDefaults };
+  SG.ProblemUI = { openNew, openHistory, Wizard, ProblemPanel, buildFromData, stepDefaults };
 })(globalThis.SG = globalThis.SG || {});

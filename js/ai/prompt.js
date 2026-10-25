@@ -98,7 +98,7 @@
    dihedral [平面,平面] 或 [A,B,C,D] 表示二面角 A-BC-D；area [多边形]；volume [立体]；surface [立体]；
    circle [圆]（"what":"len"|"r"|"area"）；sphere [球]（"what":"r"|"S"|"V"）
 37. {"op":"rightAngle","points":["A","H","B"]} —— 在 H 处画直角标记；{"op":"angleMark","points":["A","O","B"],"count":1} —— 角的圆弧标记
-38. {"op":"text","at":"A","text":"文字"} —— 文字标注（跟随点 A）；也可写 "line":"AB"（跟随线段中点）或 "pos":[x,y,z]（固定位置），可加 "color"、"size"。文字中可写变量，随图形实时变化：{len:A,B} 长度，{ang:A,B,C} ∠ABC，{坐标:A}，{度量:名称}，{参数:M.t}；末尾加 |e 显示精确值（如 {len:A,C1|e}），|d3 保留 3 位小数
+38. {"op":"text","at":"A","text":"文字"} —— 文字标注（跟随点 A）；也可写 "line":"AB"（跟随线段中点）或 "pos":[x,y,z]（固定位置），可加 "color"、"size"。文字中可写变量，随图形实时变化：{len:A,B} 长度，{ang:A,B,C} ∠ABC，{坐标:A}，{度量:<度量的 id 或名称>}，{面积:ABC}（多边形或三角形面积；写圆 / 截面圆的 id 时为圆面积），{参数:M.t}；末尾加 |e 显示精确值（如 {len:A,C1|e}），|d3 保留 3 位小数
 
 ## 修改
 39. {"op":"style","targets":["AB","CD"],"dash":"dashed","color":"#d0451b","label":true,"hidden":false} —— 修改样式（dash: auto/solid/dashed；label: 是否显示名称标签）

@@ -369,14 +369,14 @@
       return tmp;
     }
     exportPNG() {
-      this.exportCanvas(3).toBlob((b) => UI.download('立体几何.png', b));
+      this.exportCanvas(3).toBlob((b) => UI.download(this.baseName() + '.png', b));
     }
     exportSVG() {
       const dl = this.exportDL();
       const box = SG.HUD ? SG.HUD.addToExport(this, dl, SG.Backend.contentBox(dl)) : SG.Backend.contentBox(dl);
       const m = 16;
       const svg = SG.Backend.toSVG(dl, { x: box.x - m, y: box.y - m, w: box.w + 2 * m, h: box.h + 2 * m }, '#fff');
-      UI.download('立体几何.svg', svg, 'image/svg+xml');
+      UI.download(this.baseName() + '.svg', svg, 'image/svg+xml');
     }
     copyPNG() {
       this.exportCanvas(3).toBlob(async (b) => {
@@ -421,9 +421,20 @@
       return JSON.parse(JSON.stringify(p));
     }
 
-    saveFile() {
-      const data = { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON(), controls: this.controls, hud: this.hud };
-      UI.download('立体几何.json', JSON.stringify(data, null, 1), 'application/json');
+    fileData() {
+      return { scene: this.S.toJSON(), cam: this.cam.toJSON(), work: this.work, problem: this.problemJSON(), controls: this.controls, hud: this.hud };
+    }
+    /** 文件名（不含扩展名）：上次保存时填的名称，否则用题目标题 */
+    baseName() {
+      const pb = this.problem && this.problem.info;
+      const n = this.fileName || (pb && pb.title) || '立体几何';
+      return n.replace(/[\\/:*?"<>|]/g, '_').trim() || '立体几何';
+    }
+    async saveFile() {
+      const r = await UI.form('保存', [{ key: 'n', label: '文件名', value: this.baseName() }], '保存');
+      if (!r) return;
+      this.fileName = (r.n || '').replace(/\.json$/i, '').trim() || null;
+      UI.download(this.baseName() + '.json', JSON.stringify(this.fileData(), null, 1), 'application/json');
     }
     loadData(data, keepUndo) {
       const snap = this.snapshot();

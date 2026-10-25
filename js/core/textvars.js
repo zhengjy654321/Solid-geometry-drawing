@@ -5,7 +5,7 @@
  *   {x:A} {y:A} {z:A} 点的坐标分量；{坐标:A} 点的坐标 (x, y, z)
  *   {度量:∠ABC}      已有度量（按度量的名称）
  *   {参数:M.t}       对象参数的当前值（如动点 M 的位置 t、翻折角）
- *   {面积:ABC}       多边形面积；{体积:ABCD-A1B1C1D1} 立体体积
+ *   {面积:ABC}       多边形 / 三点面积，也可写圆、截面圆的 id（圆面积）；{体积:ABCD-A1B1C1D1} 立体体积
  * 格式：在末尾加 |e 表示精确值（如 √6/3），|d3 表示保留 3 位小数；默认能识别为简洁精确值时显示精确值，否则保留 2 位小数。
  */
 (function (SG) {
@@ -49,7 +49,8 @@
       case 'z': return fmtNum(pt(S, arg)[2], f);
       case '坐标': return '(' + pt(S, arg).map((v) => fmtNum(v, f)).join(', ') + ')';
       case '度量': {
-        const m = S.objects.find((o) => o.type === 'measure' && S.displayName(o) === arg);
+        // 按度量的名称、显示名或 id 查找
+        const m = S.objects.find((o) => o.type === 'measure' && (o.id === arg || o.name === arg || S.displayName(o) === arg));
         if (!m || !m.v) throw new Error('无度量');
         if (m.v.unit === 'angle') return fmtNum((m.v.value * 180) / Math.PI, f, true);
         return fmtNum(m.v.value, f);
@@ -63,9 +64,14 @@
         return fmtNum(S.getParam(o, p), f, p.unit === '°');
       }
       case '面积': {
-        const o = S.get(arg);
+        const a = arg.replace(/^[S△⊙\s]+/, '');
+        const o = S.get(a) || S.map.get(a);
         if (o && o.type === 'polygon' && o.v) return fmtNum(SG.G.polyArea(o.v.pts), f);
-        return fmtNum(SG.G.polyArea(names().map((n) => pt(S, n))), f);
+        if (o && o.type === 'circle' && o.v) return fmtNum(Math.PI * o.v.r * o.v.r, f);
+        if (o && o.type === 'sphere' && o.v) return fmtNum(4 * Math.PI * o.v.r * o.v.r, f);
+        if (o && o.type === 'measure' && o.v) return fmtNum(o.v.value, f);
+        const ns = (a.includes(',') || a.includes('，') ? a.split(/[,，]/) : SG.splitNames(a)).map((x) => x.trim()).filter(Boolean);
+        return fmtNum(SG.G.polyArea(ns.map((n) => pt(S, n))), f);
       }
       case '体积': {
         const o = S.get(arg);
@@ -88,6 +94,7 @@
     const out = [];
     for (const o of S.objects) {
       if (o.type === 'measure' && !o.err) out.push({ group: '度量', label: S.displayName(o), token: '{度量:' + S.displayName(o) + '}' });
+      if (o.type === 'circle' && o.v) out.push({ group: '面积', label: S.displayName(o) + ' 的面积', token: '{面积:' + o.id + '}' });
     }
     for (const o of S.objects) {
       if (o.type === 'point' && o.name && !o.hidden) out.push({ group: '点的坐标', label: o.name + ' 的坐标', token: '{坐标:' + o.name + '}' });

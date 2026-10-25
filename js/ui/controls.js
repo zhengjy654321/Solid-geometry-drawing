@@ -213,7 +213,7 @@
         const ta = h('textarea', { rows: 3, style: { width: '100%' } }, c.text || '');
         const vs = h('select', null, h('option', { value: '' }, '— 插入变量 —'), SG.TextVars.catalog(app.S).map((x) => h('option', { value: x.token }, x.group + '：' + x.label)));
         vs.addEventListener('change', () => { if (vs.value) { ta.value += vs.value; vs.value = ''; } });
-        area.append(ta, h('div', { class: 'btnrow' }, vs), h('div', { class: 'note' }, '变量：{len:A,B} 长度、{ang:A,B,C} 角度、{度量:名称}、{参数:M.t}；|e 精确值。'));
+        area.append(ta, h('div', { class: 'btnrow' }, vs), h('div', { class: 'note' }, '变量：{len:A,B} 长度、{ang:A,B,C} 角度、{度量:名称}、{面积:ABC}、{参数:M.t}；|e 精确值。'));
         collect = () => ({ text: ta.value });
       }
     };

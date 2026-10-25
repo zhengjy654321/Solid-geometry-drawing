@@ -73,8 +73,12 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < (eps || 1e-6), (msg
   assert.ok(vals.some((v) => v.includes('[动点] M')));
   await page.fill('.pb-field:has-text("补充说明") textarea', '把 M 画在 BD 上');
   await page.screenshot({ path: out + '/pb2.png' });
-  await page.click('.modal-box .foot button:has-text("提交并生成")');
+  await page.dblclick('.modal-box .foot button:has-text("提交并生成")');
   await page.waitForFunction(() => document.getElementById('modal').classList.contains('hidden'), null, { timeout: 5000 });
+  assert.strictEqual(await page.evaluate(() => window.__reqs.length), 2, '连点两次只应提交一次');
+  const hist = await page.evaluate(() => JSON.parse(localStorage.getItem('sg.problemHistory')));
+  assert.strictEqual(hist.length, 1, '生成后应记入历史题目');
+  assert.ok(hist[0].data.problem && hist[0].data.scene.objects.length > 0);
   const r1 = await page.evaluate(() => window.__reqs[1]);
   assert.deepStrictEqual(r1.thinking, { type: 'enabled' }, '画图默认开启思考');
   assert.strictEqual(r1.model, 'deepseek-v4-pro', '画图默认使用 Pro');
@@ -128,6 +132,24 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < (eps || 1e-6), (msg
   await page.waitForTimeout(400);
   await page.click('#side .tabs button[data-tab="problem"]');
   assert.ok(await page.evaluate(() => !!SG.app.problem && document.querySelectorAll('.pp-btn').length >= 4));
+  console.log('· 历史题目：清空后从历史中打开');
+  await page.evaluate(() => { SG.app.S.clear(); SG.app.setProblem(null); SG.app.render(); });
+  await page.evaluate(() => SG.ProblemUI.openHistory(SG.app));
+  await page.click('.ph-main');
+  await page.waitForTimeout(200);
+  assert.ok(await page.evaluate(() => !!SG.app.problem && !!SG.app.S.get('M')), '应恢复题目与图形');
+  console.log('· 变量：度量按 id、圆的面积、截面圆面积');
+  const tv = await page.evaluate(() => {
+    const S = SG.app.S;
+    SG.AIPrompt.execute(SG.app, [{ op: 'circle', name: 'ω', center: 'A', radius: 1, plane: 'ABCD' }]);
+    const m = S.map.get(SG.app.C.exec({ op: 'measure', type: 'length', items: ['A', 'C'] }).main);
+    const c = S.objects.find((o) => o.type === 'circle');
+    S.recompute();
+    return [SG.TextVars.render(S, '{度量:' + m.id + '|d3}'), SG.TextVars.render(S, '{面积:' + c.id + '|d3}'), SG.TextVars.render(S, 'S△ABC = {面积:△ABC}')];
+  });
+  console.log('  ', JSON.stringify(tv));
+  assert.ok(!tv.some((t) => t.includes('{?}')), JSON.stringify(tv));
+  assert.strictEqual(tv[1], '3.142');
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console errors');
   if (errors.length) process.exit(1);
   console.log('problem UI test passed');

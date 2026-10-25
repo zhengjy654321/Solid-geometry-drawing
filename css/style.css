@@ -386,3 +386,10 @@ body.side-hidden #side { display: none; }
   #side { position: absolute; right: 0; top: 0; bottom: 0; z-index: 35; width: min(340px, 92vw); box-shadow: -8px 0 24px rgba(0,0,0,.15); }
   #side .tabs .side-close { display: block; }
 }
+
+/* 历史题目 */
+.ph-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 60vh; overflow-y: auto; }
+.ph-item { display: flex; align-items: center; gap: 6px; }
+.ph-main { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; background: #fff; display: flex; flex-direction: column; }
+.ph-main:hover { border-color: var(--accent); background: #f2f7fe; }
+.ph-main small { color: var(--muted); }
