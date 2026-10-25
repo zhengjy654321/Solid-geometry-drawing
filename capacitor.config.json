@@ -2,5 +2,8 @@
   "appId": "com.zjy.sogeo",
   "appName": "Sogeo",
   "webDir": "www",
-  "android": { "allowMixedContent": false }
+  "android": {
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "force"
+  }
 }

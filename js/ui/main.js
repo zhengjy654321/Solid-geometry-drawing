@@ -13,6 +13,7 @@
   app.ui = ui;
   new SG.Joystick(app);
   app._vc = new SG.ViewCtl(app);
+  if (UI.isNative()) document.documentElement.classList.add('native');
   const aiPanel = new SG.AIPanel(app);
   const wizard = { current: null };
   new SG.ProblemUI.ProblemPanel(app, wizard);

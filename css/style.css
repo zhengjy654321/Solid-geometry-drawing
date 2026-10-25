@@ -396,3 +396,5 @@ body.side-hidden #side { display: none; }
 .help-dl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; margin-bottom: 10px; background: #f2f7fe; border: 1px solid #c9dcf5; border-radius: 8px; }
 .adv-head { margin-top: 14px; color: var(--muted); font-size: 12px; cursor: default; user-select: none; }
 .adv-body { margin-top: 6px; padding: 8px; border: 1px dashed var(--line); border-radius: 8px; }
+/* 仅 APK：顶部给状态栏留出空间（网页版不会加 native 类） */
+html.native body { padding-top: env(safe-area-inset-top, 0px); box-sizing: border-box; }
