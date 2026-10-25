@@ -393,3 +393,4 @@ body.side-hidden #side { display: none; }
 .ph-main { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; background: #fff; display: flex; flex-direction: column; }
 .ph-main:hover { border-color: var(--accent); background: #f2f7fe; }
 .ph-main small { color: var(--muted); }
+.help-dl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; margin-bottom: 10px; background: #f2f7fe; border: 1px solid #c9dcf5; border-radius: 8px; }
