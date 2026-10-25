@@ -107,9 +107,10 @@
   /** APK 中：把文件写入手机缓存目录，再弹出系统的"分享 / 保存到"菜单 */
   async function nativeSave(name, blob) {
     const C = window.Capacitor;
-    // Capacitor 7 中原生插件需先登记才能调用
-    const Filesystem = (C.Plugins && C.Plugins.Filesystem) || C.registerPlugin('Filesystem');
-    const Share = (C.Plugins && C.Plugins.Share) || C.registerPlugin('Share');
+    // 直接调用原生桥（APK 内置，不依赖 JS 插件包）
+    const call = (plugin, method, opts) => (C.Plugins && C.Plugins[plugin] && C.Plugins[plugin][method] ? C.Plugins[plugin][method](opts) : C.nativePromise(plugin, method, opts));
+    const Filesystem = { writeFile: (o) => call('Filesystem', 'writeFile', o) };
+    const Share = { share: (o) => call('Share', 'share', o) };
     const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
     const r = await Filesystem.writeFile({ path: name, data, directory: 'CACHE' });
     await Share.share({ title: name, dialogTitle: '保存或分享 ' + name, url: r.uri });
